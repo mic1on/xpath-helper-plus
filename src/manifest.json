@@ -1,6 +1,7 @@
 {
     "name": "Xpath Helper Plus",
-    "version": "1.0.1",
+    "version": "1.0.2",
+    "description": "Xpath Helper Plus",
     "manifest_version": 3,
     "action": {
       "default_icon": {
