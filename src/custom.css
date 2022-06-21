@@ -1,0 +1,32 @@
+#xh-bar {
+    border-width: 0 !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 120px !important;  /* bar.css body height */
+    z-index: 2147483647 !important;
+    transform: translate3d(0, 0, 0) !important;
+    transition: transform 0.2s ease-out !important;
+}
+
+#xh-bar.bottom {
+    top: auto !important;
+    bottom: 0 !important;
+}
+
+#xh-bar.hidden {
+    transform: translate3d(0, -100%, 0) !important;
+}
+
+#xh-bar.hidden.bottom {
+    transform: translate3d(0, 100%, 0) !important;
+}
+
+.xh-highlight {
+    background-color: #fff59d !important;
+}
+
+img.xh-highlight {
+    opacity: 0.5 !important;
+}

@@ -1,0 +1,37 @@
+{
+    "name": "Xpath Helper Plus",
+    "version": "1.0.1",
+    "manifest_version": 3,
+    "action": {
+      "default_icon": {
+        "16": "assets/icon16.png",
+        "24": "assets/icon24.png",
+        "32": "assets/icon32.png"
+      },
+      "default_title": "Xpath Helper Plus"
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+          "matches": ["<all_urls>"],
+          "js": [
+            "contentScript.js"
+          ],
+          "css": [
+            "custom.css"
+          ],
+          "run_at": "document_start",
+          "all_frames": true
+        }
+    ],
+    "web_accessible_resources": [{
+        "matches": ["<all_urls>"],
+        "resources": ["index.html"]
+    }],
+    "permissions": [
+      "activeTab",
+      "scripting"
+    ]
+}
