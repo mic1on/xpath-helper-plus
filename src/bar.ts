@@ -14,7 +14,9 @@ class Bar {
             document.body.appendChild(this.iframe)
         }
     }
-
+    moveBar() {
+        this.iframe.classList.toggle('bottom');
+    }
     isShow() {
         return !this.iframe.classList.contains('hidden')
     }

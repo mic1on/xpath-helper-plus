@@ -1,5 +1,5 @@
 import Bar from './bar'
-import {clearHighlights, evaluateQuery, makeQueryForElement} from './xpath'
+import { clearHighlights, evaluateQuery, makeQueryForElement } from './xpath'
 
 const bar = new Bar()
 
@@ -13,7 +13,6 @@ function handleMouseMove(e: any) {
 	if (e.shiftKey) {
 		clearHighlights()
 		const query = currentEl ? makeQueryForElement(currentEl, xpathShort) : ''
-		console.log(query)
 		chrome.runtime.sendMessage({
 			type: 'query',
 			query: query
@@ -32,6 +31,10 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse)
 	}
 	if (request.cmd === 'short') {
 		xpathShort = request.value
+	}
+
+	if (request.cmd === 'position') {
+		bar.moveBar()
 	}
 
 	if (request.cmd === 'toggleBar') {
