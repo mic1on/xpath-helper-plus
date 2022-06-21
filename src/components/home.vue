@@ -2,7 +2,7 @@
 import { sendMessageToContentScript } from "@/utils"
 import { useLocalStorage } from "@vueuse/core"
 
-const xpathRule = useLocalStorage("xpathRule", "")
+const xpathRule = ref("")
 const xpathShort = useLocalStorage("xpathShort", false)
 const xpathResult = ref("");
 const xpathResultCount = ref(null);
@@ -21,6 +21,11 @@ const handleShort = (v: boolean) => {
   xpathShort.value = v
   sendMessageToContentScript(
       {cmd: "short", value: xpathShort.value}
+  )
+}
+const handlePosition = (v: string) => {
+  sendMessageToContentScript(
+      {cmd: "position"}
   )
 }
 handleShort(xpathShort.value)
@@ -46,6 +51,7 @@ chrome.runtime.onMessage.addListener(function (request: any, sender: any, sendRe
         <div style="height: 24px">
           <span>匹配结果</span>
           <span v-show="xpathResultCount">{{ xpathResultCount }}</span>
+          <el-button style="float: right" @click="handlePosition">换个位置</el-button>
         </div>
         <el-input type="textarea" v-model="xpathResult" rows="4"/>
       </el-col>

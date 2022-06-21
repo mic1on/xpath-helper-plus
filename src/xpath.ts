@@ -25,6 +25,7 @@ const getElementIndex = (el: Element) => {
 const makeQueryForElement = (el: any, toShort: boolean = false) => {
     let query = '';
     for (; el && el.nodeType === Node.ELEMENT_NODE; el = el.parentNode) {
+        el.classList.remove('xh-highlight')
         let component = el.tagName.toLowerCase();
         const index = getElementIndex(el);
         if (el.id) {
