@@ -1,18 +1,17 @@
 class Bar {
     iframe: HTMLIFrameElement
-
+    inDomFlag: boolean
     constructor() {
         this.iframe = document.createElement('iframe');
+        this.iframe.src = chrome.runtime.getURL('index.html')
+        this.iframe.id = 'xh-bar'
+        this.hideBar()
+
+        this.inDomFlag = false
     }
 
     createIframe():void {
-        let bar = document.getElementById('xh-bar')
-        if (!bar) {
-            this.iframe.src = chrome.runtime.getURL('index.html')
-            this.iframe.id = 'xh-bar'
-            this.hideBar()
-            document.body.appendChild(this.iframe)
-        }
+        document.body.appendChild(this.iframe)
     }
     moveBar() {
         this.iframe.classList.toggle('bottom');
@@ -21,6 +20,10 @@ class Bar {
         return !this.iframe.classList.contains('hidden')
     }
     showBar() {
+        if (!this.inDomFlag) {
+            this.inDomFlag = true
+            this.createIframe()
+        }
         this.iframe.classList.remove('hidden')
     }
     hideBar() {
@@ -28,7 +31,6 @@ class Bar {
     }
 
     toggleBar(): boolean {
-        this.createIframe()
         if (this.isShow()) {
             this.hideBar()
         } else {
