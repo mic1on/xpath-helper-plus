@@ -5,6 +5,7 @@ class Bar {
         this.iframe = document.createElement('iframe');
         this.iframe.src = chrome.runtime.getURL('index.html')
         this.iframe.id = 'xh-bar'
+        this.iframe.allow = 'clipboard-write' // can use clipboard
         this.hideBar()
 
         this.inDomFlag = false
