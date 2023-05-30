@@ -5,13 +5,12 @@ import xPathToCss from "xpath-to-css"
 
 const { isSupported, copy } = useClipboard()
 const mode = ref("xpath")
-const xpathRule = ref("")
+const xpathRule = ref("string('xpath helper plus')")
 const xpathShort = useLocalStorage("xpathShort", false)
 const xpathResult = ref("");
 const xpathResultCount = ref(null);
 
 watch(() => xpathRule.value, () => {
-  console.log("xpathRule.value", xpathRule.value);
   sendMessageToContentScript(
       {cmd: mode.value, value: xpathRule.value},
       function (response: any) {
