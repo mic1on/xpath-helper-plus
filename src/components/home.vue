@@ -4,30 +4,30 @@ import { useLocalStorage, useClipboard } from "@vueuse/core"
 import xPathToCss from "xpath-to-css"
 
 const { isSupported, copy } = useClipboard()
-const mode = ref("xpath")
-const xpathRule = ref("string('xpath helper plus')")
-const xpathShort = useLocalStorage("xpathShort", false)
-const xpathResult = ref("");
-const xpathResultCount = ref(null);
+const mode = ref<string>("xpath")
+const xpathRule = ref<string>("string('xpath helper plus')")
+const xpathShort = useLocalStorage<boolean>("xpathShort", false)
+const xpathResult = ref<string>("");
+const xpathResultCount = ref<number | null>(null);
 
 watch(() => xpathRule.value, () => {
   sendMessageToContentScript(
-      {cmd: mode.value, value: xpathRule.value},
-      function (response: any) {
-        xpathResult.value = response[0];
-        xpathResultCount.value = response[1];
-  });
-}, {immediate: true});
+    { cmd: mode.value, value: xpathRule.value },
+    function (response: any) {
+      xpathResult.value = response[0];
+      xpathResultCount.value = response[1];
+    });
+}, { immediate: true });
 
 const handleShort = (v: boolean) => {
   xpathShort.value = v
   sendMessageToContentScript(
-      {cmd: "short", value: xpathShort.value}
+    { cmd: "short", value: xpathShort.value }
   )
 }
 const handlePosition = (v: string) => {
   sendMessageToContentScript(
-      {cmd: "position"}
+    { cmd: "position" }
   )
 }
 handleShort(xpathShort.value)
@@ -61,17 +61,13 @@ chrome?.runtime && chrome.runtime.onMessage.addListener(function (request: any, 
           <el-col :span="12" class="text-right">
             <el-space wrap alignment="flex-start">
               <el-button type="primary" link @click="handleCopy" v-if="isSupported">复制</el-button>
-              <el-tooltip
-                  effect="light"
-                  content="将xpath语句转为css选择器"
-                  placement="bottom"
-              >
+              <el-tooltip effect="light" content="将xpath语句转为css选择器" placement="bottom">
                 <el-button type="primary" link @click="handleToCss" v-if="isSupported">复制css</el-button>
               </el-tooltip>
-          </el-space>
+            </el-space>
           </el-col>
         </el-row>
-        <el-input type="textarea" v-model="xpathRule" rows="4"/>
+        <el-input type="textarea" v-model="xpathRule" rows="4" />
       </el-col>
       <el-col :span="12">
         <el-row justify="space-between">
@@ -85,7 +81,7 @@ chrome?.runtime && chrome.runtime.onMessage.addListener(function (request: any, 
             <el-button link @click="handlePosition">换个位置</el-button>
           </el-col>
         </el-row>
-        <el-input type="textarea" v-model="xpathResult" rows="4" class="!resize-none"/>
+        <el-input type="textarea" v-model="xpathResult" rows="4" class="!resize-none" />
       </el-col>
     </el-row>
   </div>

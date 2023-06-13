@@ -2,9 +2,9 @@
   "name": "xpath-helper-plus",
   "author": "MicLon",
   "private": true,
-  "version": "1.0.5",
+  "version": "1.0.6",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite build --watch --mode development",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -24,6 +24,8 @@
     "unplugin-auto-import": "^0.8.8",
     "unplugin-vue-components": "^0.19.6",
     "vite": "^2.9.9",
-    "vue-tsc": "^0.34.7"
+    "vite-plugin-crx-reload": "link:/Users/miclon/myproject/vite-plugins/vite-plugin-crx-reload",
+    "vue-tsc": "^0.34.7",
+    "ws": "^8.13.0"
   }
 }
