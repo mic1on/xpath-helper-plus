@@ -24,7 +24,7 @@
     "unplugin-auto-import": "^0.8.8",
     "unplugin-vue-components": "^0.19.6",
     "vite": "^2.9.9",
-    "vite-plugin-crx-reload": "link:/Users/miclon/myproject/vite-plugins/vite-plugin-crx-reload",
+    "vite-plugin-crx-reload": "^0.0.1",
     "vue-tsc": "^0.34.7",
     "ws": "^8.13.0"
   }
