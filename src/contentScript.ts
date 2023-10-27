@@ -7,30 +7,33 @@ const bar = new Bar()
 // 鼠标移动事件处理函数
 let currentEl: any = null
 let xpathShort: boolean = false
+let xpathBatch: boolean = false
 function handleMouseMove(e: any) {
 	if (currentEl === e.toElement) return
 	currentEl = e.toElement
 	if (e.shiftKey) {
 		clearHighlights()
-		const query = currentEl ? makeQueryForElement(currentEl, xpathShort) : ''
+		const query = currentEl ? makeQueryForElement(currentEl, xpathShort, xpathBatch) : ''
 		chrome.runtime.sendMessage({
 			type: 'query',
 			query: query
-		}).then(() => {})
+		}).then(() => { })
 	}
 }
 
 
 
-chrome.runtime.onMessage.addListener(function(request, sender, sendResponse)
-{
-	if(request.cmd === 'xpath') {
+chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+	if (request.cmd === 'xpath') {
 		clearHighlights()
 		const res = evaluateQuery(request.value)
 		sendResponse(res)
 	}
 	if (request.cmd === 'short') {
 		xpathShort = request.value
+	}
+	if (request.cmd === 'batch') {
+		xpathBatch = request.value
 	}
 
 	if (request.cmd === 'position') {

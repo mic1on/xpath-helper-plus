@@ -7,6 +7,7 @@ const { isSupported, copy } = useClipboard()
 const mode = ref<string>("xpath")
 const xpathRule = ref<string>("string('xpath helper plus')")
 const xpathShort = useLocalStorage<boolean>("xpathShort", false)
+const xpathBatch = useLocalStorage<boolean>("xpathBatch", false)
 const xpathResult = ref<string>("");
 const xpathResultCount = ref<number | null>(null);
 
@@ -23,6 +24,12 @@ const handleShort = (v: boolean) => {
   xpathShort.value = v
   sendMessageToContentScript(
     { cmd: "short", value: xpathShort.value }
+  )
+}
+const handleBatch = (v: boolean) => {
+  xpathBatch.value = v
+  sendMessageToContentScript(
+    { cmd: "batch", value: xpathBatch.value }
   )
 }
 const handlePosition = (v: string) => {
@@ -42,6 +49,7 @@ const handleToCss = () => {
 // 接收来自content-script的消息
 chrome?.runtime && chrome.runtime.onMessage.addListener(function (request: any, sender: any, sendResponse: any) {
   if (request.query) {
+    console.log(request.query)
     xpathRule.value = request.query
   }
 });
@@ -56,6 +64,7 @@ chrome?.runtime && chrome.runtime.onMessage.addListener(function (request: any, 
             <el-space wrap>
               <span class="text-size-2">XPATH</span>
               <el-checkbox v-model="xpathShort" @change="handleShort">精简xpath</el-checkbox>
+              <el-checkbox v-model="xpathBatch" @change="handleBatch">列表模式</el-checkbox>
             </el-space>
           </el-col>
           <el-col :span="12" class="text-right">

@@ -22,7 +22,7 @@ const getElementIndex = (el: Element) => {
     }
     return 0;
 };
-const makeQueryForElement = (el: any, toShort: boolean = false) => {
+const makeQueryForElement = (el: any, toShort: boolean = false, batch: boolean = false) => {
     let query = '';
     for (; el && el.nodeType === Node.ELEMENT_NODE; el = el.parentNode) {
         el.classList.remove('xh-highlight')
@@ -33,7 +33,7 @@ const makeQueryForElement = (el: any, toShort: boolean = false) => {
         } else if (el.className) {
             component += '[@class=\'' + el.className + '\']';
         }
-        if (index >= 1) {
+        if (!batch && index >= 1) {
             component += '[' + index + ']';
         }
         try {
@@ -79,7 +79,7 @@ const evalNodeValue = (xpathResult: XPathResult) => {
     } else if (xpathResult.resultType ===
         XPathResult.UNORDERED_NODE_ITERATOR_TYPE) {
         for (let node = xpathResult.iterateNext(); node;
-             node = xpathResult.iterateNext()) {
+            node = xpathResult.iterateNext()) {
             if (node.nodeType === Node.ELEMENT_NODE) {
                 toHighlight.push(<Element>node);
             }
