@@ -2,7 +2,7 @@
   "name": "xpath-helper-plus",
   "author": "MicLon",
   "private": true,
-  "version": "1.0.6",
+  "version": "1.0.7",
   "scripts": {
     "dev": "vite build --watch --mode development",
     "build": "vite build",
