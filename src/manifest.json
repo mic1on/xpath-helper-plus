@@ -4,6 +4,7 @@
     "description": "Xpath Helper Plus",
     "manifest_version": 3,
     "action": {
+      "default_popup": "index.html",
       "default_icon": {
         "16": "assets/icon16.png",
         "24": "assets/icon24.png",

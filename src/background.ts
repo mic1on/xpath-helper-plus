@@ -1,5 +1,7 @@
-chrome.action.onClicked.addListener(tab => {
-    chrome.tabs.sendMessage(<number>tab.id, {cmd: 'toggleBar'}, () => {})
+import { sendMessageToContentScript } from './utils'
+
+chrome.action.onClicked.addListener(() => {
+  sendMessageToContentScript({ cmd: 'toggleBar' })
 })
 
 export {}
