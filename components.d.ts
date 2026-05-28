@@ -14,6 +14,8 @@ declare module '@vue/runtime-core' {
     ElSpace: typeof import('element-plus/es')['ElSpace']
     ElTooltip: typeof import('element-plus/es')['ElTooltip']
     Home: typeof import('./src/components/home.vue')['default']
+    QueryEditorCard: typeof import('./src/components/panel/QueryEditorCard.vue')['default']
+    ResultPreviewCard: typeof import('./src/components/panel/ResultPreviewCard.vue')['default']
   }
 }
 
