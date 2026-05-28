@@ -15,7 +15,7 @@ function handleMouseMove(e: any) {
   if (e.shiftKey) {
     clearHighlights()
     const query = currentEl ? makeQueryForElement(currentEl, xpathShort, xpathBatch) : ''
-    sendMessageToPopup({ type: 'query', query })
+    sendMessageToPopup({ query })
   }
 }
 
