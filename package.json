@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite build --watch --mode development",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@vueuse/core": "^8.7.4",
@@ -15,6 +17,7 @@
     "xpath-to-css": "^1.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.40.0",
     "@types/chrome": "0.0.190",
     "@types/node": "^18.0.0",
     "@vitejs/plugin-vue": "^2.3.3",
