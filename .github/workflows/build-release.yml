@@ -1,0 +1,29 @@
+name: Build Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Package release
+        run: node scripts/package-release.mjs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xpath-helper-plus-release
+          path: release/
