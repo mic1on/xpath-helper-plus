@@ -7,36 +7,64 @@ defineProps<{
 }>()
 
 const emit = defineEmits(['update:modelValue', 'update:xpathShort', 'update:xpathBatch', 'copy', 'toCss'])
+
+const handleInput = (event: Event) => {
+  emit('update:modelValue', (event.target as HTMLTextAreaElement).value)
+}
+
+const handleShortChange = (event: Event) => {
+  emit('update:xpathShort', (event.target as HTMLInputElement).checked)
+}
+
+const handleBatchChange = (event: Event) => {
+  emit('update:xpathBatch', (event.target as HTMLInputElement).checked)
+}
 </script>
 
 <template>
-  <div>
-    <el-row justify="space-between">
-      <el-col :span="12" class="text-left h-5">
-        <el-space wrap>
-          <span class="text-size-2">XPATH</span>
-          <el-checkbox :model-value="xpathShort" @change="emit('update:xpathShort', $event)"
-            >精简xpath</el-checkbox
-          >
-          <el-checkbox :model-value="xpathBatch" @change="emit('update:xpathBatch', $event)"
-            >列表模式</el-checkbox
-          >
-        </el-space>
-      </el-col>
-      <el-col :span="12" class="text-right">
-        <el-space wrap alignment="flex-start">
-          <el-button type="primary" link @click="emit('copy')" v-if="isSupported">复制</el-button>
-          <el-tooltip effect="light" content="将xpath语句转为css选择器" placement="bottom">
-            <el-button type="primary" link @click="emit('toCss')" v-if="isSupported">复制css</el-button>
-          </el-tooltip>
-        </el-space>
-      </el-col>
-    </el-row>
-    <el-input
-      type="textarea"
-      :model-value="modelValue"
-      @input="emit('update:modelValue', $event)"
-      rows="4"
-    />
-  </div>
+  <section class="xh-panel xh-panel--editor" aria-label="XPath editor">
+    <header class="xh-panel__header">
+      <div class="xh-panel__title-group">
+        <span class="xh-panel__eyebrow">XPATH</span>
+        <label class="xh-toggle">
+          <input
+            type="checkbox"
+            :checked="xpathShort"
+            @change="handleShortChange"
+          />
+          <span class="xh-toggle__track" aria-hidden="true"></span>
+          <span>精简xpath</span>
+        </label>
+        <label class="xh-toggle">
+          <input
+            type="checkbox"
+            :checked="xpathBatch"
+            @change="handleBatchChange"
+          />
+          <span class="xh-toggle__track" aria-hidden="true"></span>
+          <span>列表模式</span>
+        </label>
+      </div>
+      <div v-if="isSupported" class="xh-panel__actions">
+        <button class="xh-action" type="button" @click="emit('copy')">复制</button>
+        <button
+          class="xh-action xh-action--accent"
+          type="button"
+          title="将xpath语句转为css选择器"
+          @click="emit('toCss')"
+        >
+          复制css
+        </button>
+      </div>
+    </header>
+    <textarea
+      class="xh-textarea"
+      aria-label="XPath rule"
+      spellcheck="false"
+      :value="modelValue"
+      @input="handleInput"
+    ></textarea>
+  </section>
 </template>
+
+<style src="./panel.css"></style>

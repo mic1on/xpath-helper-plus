@@ -3,6 +3,10 @@ import { useLocalStorage, useClipboard } from '@vueuse/core'
 import xPathToCss from 'xpath-to-css'
 import type { PopupMessage } from '@/types/messages'
 
+function getChromeApi(): typeof chrome | undefined {
+  return typeof chrome === 'undefined' ? undefined : chrome
+}
+
 export function useXPathWorkbench() {
   const { isSupported, copy } = useClipboard()
 
@@ -47,7 +51,7 @@ export function useXPathWorkbench() {
   }
 
   // Listen for query results from content script
-  chrome?.runtime?.onMessage?.addListener((request: any) => {
+  getChromeApi()?.runtime?.onMessage?.addListener((request: any) => {
     if (request.query) {
       xpathRule.value = request.query
     }

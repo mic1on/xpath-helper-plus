@@ -19,33 +19,36 @@ const {
 </script>
 
 <template>
-  <div>
-    <el-row :gutter="20" class="!m-0">
-      <el-col :span="12">
-        <QueryEditorCard
-          v-model="xpathRule"
-          :xpath-short="xpathShort"
-          :xpath-batch="xpathBatch"
-          :is-supported="isSupported"
-          @update:xpath-short="handleShort"
-          @update:xpath-batch="handleBatch"
-          @copy="handleCopy"
-          @to-css="handleToCss"
-        />
-      </el-col>
-      <el-col :span="12">
-        <ResultPreviewCard
-          v-model="xpathResult"
-          :result-count="xpathResultCount"
-          @position="handlePosition"
-        />
-      </el-col>
-    </el-row>
+  <div class="xh-workbench">
+    <QueryEditorCard
+      v-model="xpathRule"
+      :xpath-short="xpathShort"
+      :xpath-batch="xpathBatch"
+      :is-supported="isSupported"
+      @update:xpath-short="handleShort"
+      @update:xpath-batch="handleBatch"
+      @copy="handleCopy"
+      @to-css="handleToCss"
+    />
+    <ResultPreviewCard
+      v-model="xpathResult"
+      :result-count="xpathResultCount"
+      @position="handlePosition"
+    />
   </div>
 </template>
 
 <style scoped>
-:deep(.el-textarea .el-textarea__inner) {
-  resize: none;
+.xh-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  width: 100%;
+}
+
+@media (max-width: 760px) {
+  .xh-workbench {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -4,7 +4,6 @@
     "description": "Xpath Helper Plus",
     "manifest_version": 3,
     "action": {
-      "default_popup": "index.html",
       "default_icon": {
         "16": "assets/icon16.png",
         "24": "assets/icon24.png",
@@ -13,7 +12,8 @@
       "default_title": "Xpath Helper Plus"
     },
     "background": {
-        "service_worker": "background.js"
+        "service_worker": "background.js",
+        "type": "module"
     },
     "content_scripts": [
         {

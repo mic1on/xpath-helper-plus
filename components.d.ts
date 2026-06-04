@@ -5,14 +5,6 @@ import '@vue/runtime-core'
 
 declare module '@vue/runtime-core' {
   export interface GlobalComponents {
-    ElButton: typeof import('element-plus/es')['ElButton']
-    ElCheckbox: typeof import('element-plus/es')['ElCheckbox']
-    ElCol: typeof import('element-plus/es')['ElCol']
-    ElConfigProvider: typeof import('element-plus/es')['ElConfigProvider']
-    ElInput: typeof import('element-plus/es')['ElInput']
-    ElRow: typeof import('element-plus/es')['ElRow']
-    ElSpace: typeof import('element-plus/es')['ElSpace']
-    ElTooltip: typeof import('element-plus/es')['ElTooltip']
     Home: typeof import('./src/components/home.vue')['default']
     QueryEditorCard: typeof import('./src/components/panel/QueryEditorCard.vue')['default']
     ResultPreviewCard: typeof import('./src/components/panel/ResultPreviewCard.vue')['default']

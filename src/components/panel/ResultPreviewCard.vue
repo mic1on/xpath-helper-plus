@@ -5,27 +5,31 @@ defineProps<{
 }>()
 
 const emit = defineEmits(['update:modelValue', 'position'])
+
+const handleInput = (event: Event) => {
+  emit('update:modelValue', (event.target as HTMLTextAreaElement).value)
+}
 </script>
 
 <template>
-  <div>
-    <el-row justify="space-between">
-      <el-col :span="12" class="text-left h-5">
-        <el-space wrap>
-          <span class="text-size-2">匹配结果</span>
-          <span v-show="resultCount">{{ resultCount }}</span>
-        </el-space>
-      </el-col>
-      <el-col :span="12" class="text-right">
-        <el-button link @click="emit('position')">换个位置</el-button>
-      </el-col>
-    </el-row>
-    <el-input
-      type="textarea"
-      :model-value="modelValue"
-      @input="emit('update:modelValue', $event)"
-      rows="4"
-      class="!resize-none"
-    />
-  </div>
+  <section class="xh-panel xh-panel--result" aria-label="XPath result preview">
+    <header class="xh-panel__header">
+      <div class="xh-panel__title-group">
+        <span class="xh-panel__eyebrow">匹配结果</span>
+        <span v-show="resultCount" class="xh-count">{{ resultCount }}</span>
+      </div>
+      <div class="xh-panel__actions">
+        <button class="xh-action" type="button" @click="emit('position')">换个位置</button>
+      </div>
+    </header>
+    <textarea
+      class="xh-textarea"
+      aria-label="XPath result"
+      spellcheck="false"
+      :value="modelValue"
+      @input="handleInput"
+    ></textarea>
+  </section>
 </template>
+
+<style src="./panel.css"></style>

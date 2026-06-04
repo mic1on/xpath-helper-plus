@@ -1,20 +1,28 @@
 import Bar from './bar'
 import { clearHighlights, evaluateQuery, makeQueryForElement } from './xpath'
-import { sendMessageToPopup } from './utils'
 import type { PopupMessage } from './types/messages'
+
+function sendMessageToPopup(message: { query: string }): void {
+  try {
+    const maybePromise = chrome.runtime.sendMessage(message)
+    if (maybePromise && typeof (maybePromise as Promise<unknown>).catch === 'function') {
+      ;(maybePromise as Promise<unknown>).catch(() => {})
+    }
+  } catch {}
+}
 
 const bar = new Bar()
 
 // Mouse move event handler
-let currentEl: any = null
+let currentEl: EventTarget | null = null
 let xpathShort: boolean = false
 let xpathBatch: boolean = false
-function handleMouseMove(e: any) {
-  if (currentEl === e.toElement) return
-  currentEl = e.toElement
+function handleMouseMove(e: MouseEvent) {
+  if (currentEl === e.target) return
+  currentEl = e.target
   if (e.shiftKey) {
     clearHighlights()
-    const query = currentEl ? makeQueryForElement(currentEl, xpathShort, xpathBatch) : ''
+    const query = currentEl instanceof Element ? makeQueryForElement(currentEl, xpathShort, xpathBatch) : ''
     sendMessageToPopup({ query })
   }
 }
