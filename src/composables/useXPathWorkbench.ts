@@ -52,8 +52,15 @@ export function useXPathWorkbench() {
   }
 
   const handleToCss = () => {
-    const cssRule = xPathToCss(xpathRule.value)
-    copy(cssRule)
+    try {
+      const cssRule = xPathToCss(xpathRule.value)
+      copy(cssRule)
+    } catch (error) {
+      xpathResult.value = error instanceof Error
+        ? `[CSS CONVERSION FAILED] ${error.message}`
+        : '[CSS CONVERSION FAILED]'
+      xpathResultCount.value = null
+    }
   }
 
   // Listen for query results from content script
@@ -65,6 +72,7 @@ export function useXPathWorkbench() {
 
   // Initialize short mode
   handleShort(xpathShort.value)
+  handleBatch(xpathBatch.value)
   handleContainsId(xpathContainsId.value)
 
   return {
