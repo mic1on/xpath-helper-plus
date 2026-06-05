@@ -7,11 +7,13 @@ const {
   xpathRule,
   xpathShort,
   xpathBatch,
+  xpathContainsId,
   xpathResult,
   xpathResultCount,
   isSupported,
   handleShort,
   handleBatch,
+  handleContainsId,
   handlePosition,
   handleCopy,
   handleToCss,
@@ -24,9 +26,11 @@ const {
       v-model="xpathRule"
       :xpath-short="xpathShort"
       :xpath-batch="xpathBatch"
+      :xpath-contains-id="xpathContainsId"
       :is-supported="isSupported"
       @update:xpath-short="handleShort"
       @update:xpath-batch="handleBatch"
+      @update:xpath-contains-id="handleContainsId"
       @copy="handleCopy"
       @to-css="handleToCss"
     />

@@ -5,7 +5,7 @@ export interface QueryMessage {
 }
 
 export interface ToggleMessage {
-  cmd: 'short' | 'batch'
+  cmd: 'short' | 'batch' | 'containsId'
   value: boolean
 }
 

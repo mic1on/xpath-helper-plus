@@ -14,6 +14,7 @@ export function useXPathWorkbench() {
   const xpathRule = ref<string>("string('xpath helper plus')")
   const xpathShort = useLocalStorage<boolean>('xpathShort', false)
   const xpathBatch = useLocalStorage<boolean>('xpathBatch', false)
+  const xpathContainsId = useLocalStorage<boolean>('xpathContainsId', false)
   const xpathResult = ref<string>('')
   const xpathResultCount = ref<number | null>(null)
 
@@ -35,6 +36,11 @@ export function useXPathWorkbench() {
   const handleBatch = (v: boolean) => {
     xpathBatch.value = v
     sendMessageToContentScript({ cmd: 'batch', value: xpathBatch.value })
+  }
+
+  const handleContainsId = (v: boolean) => {
+    xpathContainsId.value = v
+    sendMessageToContentScript({ cmd: 'containsId', value: xpathContainsId.value })
   }
 
   const handlePosition = () => {
@@ -59,17 +65,20 @@ export function useXPathWorkbench() {
 
   // Initialize short mode
   handleShort(xpathShort.value)
+  handleContainsId(xpathContainsId.value)
 
   return {
     mode,
     xpathRule,
     xpathShort,
     xpathBatch,
+    xpathContainsId,
     xpathResult,
     xpathResultCount,
     isSupported,
     handleShort,
     handleBatch,
+    handleContainsId,
     handlePosition,
     handleCopy,
     handleToCss,

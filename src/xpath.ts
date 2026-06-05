@@ -22,24 +22,71 @@ const getElementIndex = (el: Element) => {
     }
     return 0;
 };
-const makeQueryForElement = (el: any, toShort: boolean = false, batch: boolean = false) => {
+
+const escapeXPathString = (value: string) => {
+    if (!value.includes('\'')) {
+        return '\'' + value + '\'';
+    }
+    if (!value.includes('"')) {
+        return '"' + value + '"';
+    }
+
+    return 'concat(' + value.split('\'').map(part => '\'' + part + '\'').join(', "\'", ') + ')';
+};
+
+const countXPathMatches = (query: string) => {
+    try {
+        const nodes = document.evaluate(query, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        return nodes.snapshotLength;
+    } catch (e) {
+        console.log(e);
+        return 0;
+    }
+};
+
+const getIdContainsCandidates = (id: string) => {
+    const tokens = id
+        .split(/[\s_\-:.]+/)
+        .map(token => token.trim())
+        .filter(token => token.length >= 3);
+
+    return Array.from(new Set([...tokens, id]))
+        .sort((a, b) => a.length - b.length);
+};
+
+const makeIdComponent = (tagName: string, id: string, useContainsId: boolean) => {
+    if (!useContainsId) {
+        return tagName + '[@id=' + escapeXPathString(id) + ']';
+    }
+
+    const uniqueContains = getIdContainsCandidates(id)
+        .map(candidate => tagName + '[contains(@id,' + escapeXPathString(candidate) + ')]')
+        .find(component => countXPathMatches('//' + component) === 1);
+
+    return uniqueContains ?? tagName + '[@id=' + escapeXPathString(id) + ']';
+};
+
+const makeQueryForElement = (
+    el: any,
+    toShort: boolean = false,
+    batch: boolean = false,
+    containsId: boolean = false
+) => {
     let query = '';
     for (; el && el.nodeType === Node.ELEMENT_NODE; el = el.parentNode) {
         el.classList.remove('xh-highlight')
         let component = el.tagName.toLowerCase();
         const index = getElementIndex(el);
         if (el.id) {
-            component += '[@id=\'' + el.id + '\']';
+            component = makeIdComponent(component, el.id, toShort && containsId);
         } else if (el.className) {
-            component += '[@class=\'' + el.className + '\']';
+            component += '[@class=' + escapeXPathString(el.className) + ']';
         }
         if (!batch && index >= 1) {
             component += '[' + index + ']';
         }
         try {
-            const nodes = document.evaluate("//" + component, document, null, XPathResult.ANY_TYPE, null)
-            const res = evalNodeValue(nodes);
-            if (toShort && res[1] === 1) {
+            if (toShort && countXPathMatches('//' + component) === 1) {
                 query = '//' + component + query;
                 break
             }

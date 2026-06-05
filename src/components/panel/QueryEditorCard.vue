@@ -3,10 +3,18 @@ defineProps<{
   modelValue: string
   xpathShort: boolean
   xpathBatch: boolean
+  xpathContainsId: boolean
   isSupported: boolean
 }>()
 
-const emit = defineEmits(['update:modelValue', 'update:xpathShort', 'update:xpathBatch', 'copy', 'toCss'])
+const emit = defineEmits([
+  'update:modelValue',
+  'update:xpathShort',
+  'update:xpathBatch',
+  'update:xpathContainsId',
+  'copy',
+  'toCss',
+])
 
 const handleInput = (event: Event) => {
   emit('update:modelValue', (event.target as HTMLTextAreaElement).value)
@@ -18,6 +26,10 @@ const handleShortChange = (event: Event) => {
 
 const handleBatchChange = (event: Event) => {
   emit('update:xpathBatch', (event.target as HTMLInputElement).checked)
+}
+
+const handleContainsIdChange = (event: Event) => {
+  emit('update:xpathContainsId', (event.target as HTMLInputElement).checked)
 }
 </script>
 
@@ -34,6 +46,16 @@ const handleBatchChange = (event: Event) => {
           />
           <span class="xh-toggle__track" aria-hidden="true"></span>
           <span>精简xpath</span>
+        </label>
+        <label class="xh-toggle xh-toggle--sub" :class="{ 'xh-toggle--disabled': !xpathShort }">
+          <input
+            type="checkbox"
+            :checked="xpathContainsId"
+            :disabled="!xpathShort"
+            @change="handleContainsIdChange"
+          />
+          <span class="xh-toggle__track" aria-hidden="true"></span>
+          <span>contains id</span>
         </label>
         <label class="xh-toggle">
           <input

@@ -17,12 +17,15 @@ const bar = new Bar()
 let currentEl: EventTarget | null = null
 let xpathShort: boolean = false
 let xpathBatch: boolean = false
+let xpathContainsId: boolean = false
 function handleMouseMove(e: MouseEvent) {
   if (currentEl === e.target) return
   currentEl = e.target
   if (e.shiftKey) {
     clearHighlights()
-    const query = currentEl instanceof Element ? makeQueryForElement(currentEl, xpathShort, xpathBatch) : ''
+    const query = currentEl instanceof Element
+      ? makeQueryForElement(currentEl, xpathShort, xpathBatch, xpathContainsId)
+      : ''
     sendMessageToPopup({ query })
   }
 }
@@ -38,6 +41,9 @@ chrome.runtime.onMessage.addListener(function (request: PopupMessage, sender, se
   }
   if (request.cmd === 'batch') {
     xpathBatch = request.value
+  }
+  if (request.cmd === 'containsId') {
+    xpathContainsId = request.value
   }
   if (request.cmd === 'position') {
     bar.moveBar()

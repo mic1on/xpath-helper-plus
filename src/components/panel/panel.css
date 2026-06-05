@@ -72,6 +72,15 @@
   cursor: pointer;
 }
 
+.xh-toggle--sub {
+  color: rgba(167, 243, 208, 0.76);
+}
+
+.xh-toggle--disabled {
+  color: rgba(219, 255, 250, 0.34);
+  cursor: not-allowed;
+}
+
 .xh-toggle input {
   position: absolute;
   width: 1px;
@@ -113,6 +122,17 @@
 .xh-toggle input:checked + .xh-toggle__track::after {
   transform: translateX(11px);
   background: #34d399;
+}
+
+.xh-toggle input:disabled + .xh-toggle__track {
+  border-color: rgba(125, 249, 255, 0.16);
+  background: rgba(4, 10, 14, 0.48);
+  box-shadow: none;
+}
+
+.xh-toggle input:disabled + .xh-toggle__track::after {
+  background: rgba(186, 255, 248, 0.28);
+  box-shadow: none;
 }
 
 .xh-toggle input:focus-visible + .xh-toggle__track,
