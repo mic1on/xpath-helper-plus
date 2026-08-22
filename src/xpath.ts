@@ -173,5 +173,10 @@ export {
     highlight,
     clearHighlights,
     evaluateQuery,
-    makeQueryForElement
+    makeQueryForElement,
+    // Pure helpers exported for unit testing (behavior-preserving; no runtime
+    // change to the extension, which imports only the functions above).
+    escapeXPathString,
+    getIdContainsCandidates,
+    getElementIndex
 }
