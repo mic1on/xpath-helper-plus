@@ -17,6 +17,10 @@ const {
   handlePosition,
   handleCopy,
   handleToCss,
+  queryHistory,
+  clearQueryHistory,
+  toggleQueryPin,
+  runQuery,
 } = useXPathWorkbench()
 </script>
 
@@ -28,11 +32,16 @@ const {
       :xpath-batch="xpathBatch"
       :xpath-contains-id="xpathContainsId"
       :is-supported="isSupported"
+      :query-history="queryHistory"
       @update:xpath-short="handleShort"
       @update:xpath-batch="handleBatch"
       @update:xpath-contains-id="handleContainsId"
       @copy="handleCopy"
       @to-css="handleToCss"
+      @select-history="(q: string) => (xpathRule = q)"
+      @clear-history="clearQueryHistory"
+      @toggle-pin="toggleQueryPin"
+      @run-query="runQuery"
     />
     <ResultPreviewCard
       v-model="xpathResult"
@@ -50,7 +59,7 @@ const {
   width: 100%;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 600px) {
   .xh-workbench {
     grid-template-columns: 1fr;
   }
