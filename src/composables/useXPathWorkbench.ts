@@ -2,6 +2,7 @@ import { sendMessageToContentScript } from '@/utils'
 import { useLocalStorage, useClipboard } from '@vueuse/core'
 import xPathToCss from 'xpath-to-css'
 import type { PopupMessage } from '@/types/messages'
+import { useQueryHistory } from './useQueryHistory'
 
 function getChromeApi(): typeof chrome | undefined {
   return typeof chrome === 'undefined' ? undefined : chrome
@@ -17,12 +18,16 @@ export function useXPathWorkbench() {
   const xpathResult = ref<string>('')
   const xpathResultCount = ref<number | null>(null)
 
+  const { history, add: addToHistory, clear: clearHistory, togglePin } = useQueryHistory()
+
   const executeQuery = () => {
     const message: PopupMessage = { cmd: 'xpath', value: xpathRule.value }
     sendMessageToContentScript(message, (response: any) => {
       xpathResult.value = response?.[0] ?? ''
       xpathResultCount.value = response?.[1] ?? null
     })
+    // Record successful query execution into history
+    addToHistory(xpathRule.value)
   }
 
   watch(() => xpathRule.value, executeQuery, { immediate: true })
@@ -88,5 +93,10 @@ export function useXPathWorkbench() {
     handlePosition,
     handleCopy,
     handleToCss,
+    // Query history
+    queryHistory: history,
+    addToQueryHistory: addToHistory,
+    clearQueryHistory: clearHistory,
+    toggleQueryPin: togglePin,
   }
 }

@@ -42,14 +42,6 @@
   min-width: 0;
 }
 
-.xh-panel__title-group {
-  flex-wrap: wrap;
-}
-
-.xh-panel__actions {
-  flex-shrink: 0;
-}
-
 .xh-panel__eyebrow {
   color: #8dfcf0;
   font-family: "Avenir Next Condensed", "DIN Condensed", sans-serif;
@@ -170,6 +162,19 @@
   color: #a7f3d0;
 }
 
+.xh-action--ghost {
+  border-color: transparent;
+  background: transparent;
+  color: rgba(219, 255, 250, 0.64);
+}
+
+.xh-action--ghost:hover {
+  border-color: rgba(125, 249, 255, 0.28);
+  background: rgba(14, 116, 144, 0.18);
+  color: #ffffff;
+  box-shadow: none;
+}
+
 .xh-count {
   min-width: 22px;
   padding: 1px 7px;
@@ -181,6 +186,167 @@
   line-height: 16px;
   text-align: center;
   box-shadow: 0 0 14px rgba(45, 212, 191, 0.16);
+}
+
+.xh-history-trigger {
+  position: relative;
+}
+
+.xh-history-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 12px;
+  height: 12px;
+  padding: 0 3px;
+  border-radius: 6px;
+  background: #34d399;
+  color: #061512;
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 12px;
+  text-align: center;
+}
+
+.xh-history-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 10;
+  min-width: 320px;
+  max-width: 420px;
+  max-height: 280px;
+  padding: 4px;
+  border: 1px solid rgba(125, 249, 255, 0.24);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(13, 31, 42, 0.96), rgba(5, 15, 22, 0.94)),
+    linear-gradient(90deg, rgba(125, 249, 255, 0.08), transparent);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 16px 40px rgba(0, 0, 0, 0.36);
+  overflow: hidden;
+}
+
+.xh-history-fade-enter-active,
+.xh-history-fade-leave-active {
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.xh-history-fade-enter-from,
+.xh-history-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.xh-history-dropdown__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(125, 249, 255, 0.12);
+  color: #8dfcf0;
+  font-family: "Avenir Next Condensed", "DIN Condensed", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.xh-history-clear {
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  color: rgba(219, 255, 250, 0.56);
+  background: transparent;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.xh-history-clear:hover {
+  color: #ff6b6b;
+  border-color: rgba(255, 107, 107, 0.4);
+}
+
+.xh-history-list {
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.xh-history-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  color: #e7fffb;
+  font-size: 11px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.xh-history-item:hover {
+  background: rgba(125, 249, 255, 0.08);
+}
+
+.xh-history-item--pinned {
+  background: rgba(52, 211, 153, 0.06);
+}
+
+.xh-history-item--pinned:hover {
+  background: rgba(52, 211, 153, 0.12);
+}
+
+.xh-history-item__pin {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(219, 255, 250, 0.36);
+  cursor: pointer;
+  transition: color 0.15s ease, transform 0.12s ease;
+}
+
+.xh-history-item__pin:hover {
+  color: #34d399;
+  transform: scale(1.15);
+}
+
+.xh-history-item--pinned .xh-history-item__pin {
+  color: #34d399;
+}
+
+.xh-history-item__query {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "SF Mono", "Cascadia Code", "Menlo", monospace;
+  font-size: 11px;
+}
+
+.xh-history-item__time {
+  flex-shrink: 0;
+  color: rgba(219, 255, 250, 0.38);
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.xh-history-empty {
+  padding: 16px 8px;
+  text-align: center;
+  color: rgba(219, 255, 250, 0.38);
+  font-size: 11px;
 }
 
 .xh-textarea {
