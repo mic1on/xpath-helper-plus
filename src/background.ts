@@ -24,8 +24,18 @@ function sendMessageToContentScript(message: PopupMessage, callback?: SendRespon
   })
 }
 
-chrome.action.onClicked.addListener(() => {
+function toggleBar(): void {
   sendMessageToContentScript({ cmd: 'toggleBar' })
+}
+
+chrome.action.onClicked.addListener(() => {
+  toggleBar()
+})
+
+chrome.commands.onCommand.addListener((command) => {
+  if (command === 'toggle-bar') {
+    toggleBar()
+  }
 })
 
 export {}
