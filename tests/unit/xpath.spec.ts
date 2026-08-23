@@ -26,6 +26,20 @@ function setDom(html: string) {
   document.body.innerHTML = html
 }
 
+// Count how many nodes an XPath query matches in the current jsdom document.
+// Used to assert order-independence / dynamic-class robustness of the #12
+// contains() predicates without depending on the extension's own evaluator.
+function evaluateQueryCount(query: string): [XPathResult, number] {
+  const result = document.evaluate(
+    query,
+    document,
+    null,
+    XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+    null
+  )
+  return [result, result.snapshotLength]
+}
+
 describe('escapeXPathString', () => {
   it('wraps a string with no quotes in single quotes', () => {
     expect(escapeXPathString('abc')).toBe("'abc'")
@@ -128,7 +142,7 @@ describe('makeQueryForElement', () => {
     )
     const secondLi = document.querySelectorAll('li')[1]
     expect(makeQueryForElement(secondLi)).toBe(
-      "/html/body/div[@id='root']/ul/li[@class='item'][2]"
+      "/html/body/div[@id='root']/ul/li[contains(concat(' ', normalize-space(@class), ' '), ' item ')][2]"
     )
   })
 
@@ -139,15 +153,53 @@ describe('makeQueryForElement', () => {
     )
   })
 
-  it('CHARACTERIZATION: uses exact full-string @class match for non-id elements', () => {
-    // TODO(#12): class matching uses [@class='foo bar'], which requires the
-    // exact class string (token order + whitespace). This is fragile for
-    // multi-class / dynamic-class elements. Capture current behavior here; the
-    // #12 fix should switch to a contains()/normalize-space() token match and
-    // flip this assertion.
+  it('uses a whitespace-normalized contains() token match for a single class', () => {
+    // #12 fix: class matching uses contains(concat(' ', normalize-space(@class),
+    // ' '), ' <token> '), which locates the element regardless of surrounding
+    // whitespace or additional sibling classes.
     setDom('<div><span class="foo bar">t</span></div>')
     expect(makeQueryForElement(document.querySelector('span')!)).toBe(
-      "/html/body/div/span[@class='foo bar']"
+      "/html/body/div/span[contains(concat(' ', normalize-space(@class), ' '), ' foo ') and contains(concat(' ', normalize-space(@class), ' '), ' bar ')]"
+    )
+  })
+
+  it('combines one contains() predicate per class token with `and` (multi-class)', () => {
+    // A multi-class element yields one whitespace-normalized contains() per
+    // token, joined with `and`, so the match is order-independent.
+    setDom('<div><span class="btn active large">t</span></div>')
+    expect(makeQueryForElement(document.querySelector('span')!)).toBe(
+      "/html/body/div/span[contains(concat(' ', normalize-space(@class), ' '), ' btn ') and contains(concat(' ', normalize-space(@class), ' '), ' active ') and contains(concat(' ', normalize-space(@class), ' '), ' large ')]"
+    )
+  })
+
+  it('matches regardless of class attribute token order', () => {
+    // The generated predicate for classes derived from "b a" must still locate
+    // an element whose class attribute lists them in the opposite order.
+    setDom('<div><span class="a b">t</span></div>')
+    const query = makeQueryForElement(document.querySelector('span')!)
+    // Now change the DOM so the same element has the tokens reordered and
+    // padded with extra whitespace; the query must still match it uniquely.
+    setDom('<div><span class="  b   a  ">t</span></div>')
+    const [, count] = evaluateQueryCount(query)
+    expect(count).toBe(1)
+  })
+
+  it('is robust to a dynamically added extra class', () => {
+    // A framework adding e.g. `active`/`hover` at runtime must not break the
+    // predicate built from the original class list.
+    setDom('<div><span class="foo">t</span></div>')
+    const query = makeQueryForElement(document.querySelector('span')!)
+    setDom('<div><span class="foo active hover">t</span></div>')
+    const [, count] = evaluateQueryCount(query)
+    expect(count).toBe(1)
+  })
+
+  it('falls back to a tag-only component when the class is only whitespace', () => {
+    // An all-whitespace className trims to no tokens; emit no class predicate
+    // rather than a malformed/empty one.
+    setDom('<div><span class="   ">t</span></div>')
+    expect(makeQueryForElement(document.querySelector('span')!)).toBe(
+      '/html/body/div/span'
     )
   })
 
@@ -165,7 +217,7 @@ describe('makeQueryForElement', () => {
     const secondLi = document.querySelectorAll('li')[1]
     // batch=true suppresses the trailing [index]; the id/class predicates stay.
     expect(makeQueryForElement(secondLi, false, true)).toBe(
-      "/html/body/div[@id='root']/ul/li[@class='item']"
+      "/html/body/div[@id='root']/ul/li[contains(concat(' ', normalize-space(@class), ' '), ' item ')]"
     )
   })
 
@@ -181,13 +233,15 @@ describe('makeQueryForElement', () => {
   it('CHARACTERIZATION: toShort keeps building a relative path when the leaf is not unique on its own', () => {
     // TODO(#13): the short path for a non-unique class element still carries the
     // positional index derived from getElementIndex. Here two identical
-    // <li class="item"> exist, so //li[@class='item'] is not unique and the
-    // first li keeps its [1] index. Locks in current output.
+    // <li class="item"> exist, so the class contains() predicate is not unique
+    // and the first li keeps its [1] index. Locks in current #13 behavior.
     setDom(
       '<div id="root"><ul><li class="item">a</li><li class="item">b</li></ul></div>'
     )
     const firstLi = document.querySelectorAll('li')[0]
-    expect(makeQueryForElement(firstLi, true)).toBe("//li[@class='item'][1]")
+    expect(makeQueryForElement(firstLi, true)).toBe(
+      "//li[contains(concat(' ', normalize-space(@class), ' '), ' item ')][1]"
+    )
   })
 
   it('uses contains(@id, ...) with the first uniquely-matching token in containsId mode', () => {

@@ -18,9 +18,9 @@
 
 经过精简后的xpath语句，可以很短的，比如：
 
-> //div[@class='next-article-title']
+> //div[contains(concat(' ', normalize-space(@class), ' '), ' next-article-title ')]
 
-程序会自动查找dom结构中是否该xpath语句是唯一指向元素，如果是，则会自动精简，否则，则会继续向上查找，直到最精简且唯一的xpath语句。
+为兼容框架动态增删、重排class，class匹配采用按token的`contains(concat(' ', normalize-space(@class), ' '), ' <token> ')`断言，与class的顺序和空白无关。程序会自动查找dom结构中是否该xpath语句是唯一指向元素，如果是，则会自动精简，否则，则会继续向上查找，直到最精简且唯一的xpath语句。
 
 
 #### 重构

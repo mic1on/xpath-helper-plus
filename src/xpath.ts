@@ -66,6 +66,23 @@ const makeIdComponent = (tagName: string, id: string, useContainsId: boolean) =>
     return uniqueContains ?? tagName + '[@id=' + escapeXPathString(id) + ']';
 };
 
+const makeClassComponent = (tagName: string, className: string) => {
+    // Build a robust, order- and whitespace-independent class predicate: one
+    // whitespace-normalized contains() per class token, combined with `and`.
+    // This tolerates framework class reordering and dynamically added/removed
+    // classes, unlike the fragile full-string [@class='...'] match (#12).
+    const tokens = className.split(/\s+/).filter(token => token.length > 0);
+    if (tokens.length === 0) {
+        // className was only whitespace: fall back to tag-only component.
+        return tagName;
+    }
+    const predicate = tokens
+        .map(token => "contains(concat(' ', normalize-space(@class), ' '), "
+            + escapeXPathString(' ' + token + ' ') + ')')
+        .join(' and ');
+    return tagName + '[' + predicate + ']';
+};
+
 const makeQueryForElement = (
     el: any,
     toShort: boolean = false,
@@ -80,7 +97,7 @@ const makeQueryForElement = (
         if (el.id) {
             component = makeIdComponent(component, el.id, toShort && containsId);
         } else if (el.className) {
-            component += '[@class=' + escapeXPathString(el.className) + ']';
+            component = makeClassComponent(component, el.className);
         }
         if (!batch && index >= 1) {
             component += '[' + index + ']';
