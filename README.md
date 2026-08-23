@@ -1,59 +1,82 @@
-# xpath helper plus
+# xpath-helper-plus
 
-![](https://miclon-job.oss-cn-hangzhou.aliyuncs.com/img/20220622143923.png)
+![xpath-helper-plus screenshot](https://miclon-job.oss-cn-hangzhou.aliyuncs.com/img/20220622143923.png)
 
-这是一个xpath开发者的工具，可以帮助开发者快速的定位元素。
+A Chrome MV3 developer extension (Vue 3 + Vite) that generates a minimal, unique XPath for a selected element and lets you evaluate XPath queries against the page.
 
-其核心API均来自于xpath helper，在此基础上增加了一些额外的功能，比如：精简xpath语句。
+---
 
-#### 精简xpath语句
+## 功能清单
 
-原来的方式是从根节点，一般是html开始逐一向下进行元素定位，这种方式唯一缺点在于整个xpath语句会很长，比如：
+| 功能 | 说明 |
+|------|------|
+| **元素拾取** | 按住 `Shift` + 鼠标悬停/点击页面任意元素，自动生成该元素的唯一 XPath 并回填到编辑器。 |
+| **自动精简为最短唯一 XPath** | 从目标元素向上遍历 DOM，寻找最短且在当前页面唯一的 XPath；若当前路径不唯一则继续向上。 |
+| **健壮的 class 匹配** | 采用按 token 的 `contains(concat(' ', normalize-space(@class), ' '), ' <token> ')` 断言，与 class 顺序、空白无关（兼容动态增删/重排 class 的框架）。 |
+| **位置索引正确性** | `tag[predicate][n]` 的位置索引 `n` 统计的是**满足 predicate 的同标签兄弟节点**，而非所有同标签兄弟节点（修复 #13）。 |
+| **查询编辑器** | 左侧面板：可手写/编辑 XPath；三个开关——**精简xpath**（自动精简）、**contains id**（允许在谓词中使用 id）、**列表模式**（批量/不加位置索引）。 |
+| **结果预览** | 右侧面板：实时显示当前 XPath 匹配的节点数与序列化结果；提供“换个位置”切换面板上下位置。 |
+| **一键复制 XPath** | 编辑器顶部“复制”按钮，复制当前 XPath 到剪贴板。 |
+| **一键转 CSS** | 编辑器顶部“复制css”按钮，将当前 XPath 通过 `xpath-to-css` 转为 CSS 选择器并复制。 |
+| **配置持久化** | 三个开关状态通过 `localStorage` 持久化，重启浏览器后保持。 |
+| **键盘快捷键** | `Alt+Shift+X` 切换浮动栏显示/隐藏（可在 `chrome://extensions/shortcuts` 自定义）。 |
 
-> /html/body/div[@id='__nuxt']/div[@id='__layout']/div[@id='juejin']/div[@class='view-container']/main[@class='container main-container']/div[@class='view column-view']/div[@class='sidebar sidebar top sticky']/div[@class='sticky-block-box']/nav[@class='next-article']/div[@class='next-article-header']/div[@class='next-article-title']
+---
 
-当然还有一部分程序员依赖于chrome自带的元素定位，在选中元素右击-复制xpath，这种方式会很长，而且不可读。
+## 使用姿势
 
-> //*[@id="juejin"]/div[1]/main/div/div[3]/div[4]/nav/div[1]/div
+1. **安装扩展后**，点击浏览器右上角工具栏图标，即可在当前页面切换显示/隐藏浮动栏（面板以 iframe 注入页面，而非独立弹窗）。
+2. **姿势 1（手写/微调）**：在左侧编辑器直接输入或修改 XPath，右侧实时预览匹配结果。
+3. **姿势 2（拾取元素）**：按住 `Shift` 键，在网页上悬停或点击目标元素，XPath 自动生成并回填编辑器。
+4. **键盘快捷键**：按 `Alt+Shift+X` 快速切换浮动栏显示/隐藏（与点击工具栏图标等效）。
+5. 根据需要切换“精简xpath”“contains id”“列表模式”三个开关。
+6. 点击“复制”获取 XPath，或点击“复制css”获取等价 CSS 选择器。
 
-经过精简后的xpath语句，可以很短的，比如：
+---
 
-> //div[contains(concat(' ', normalize-space(@class), ' '), ' next-article-title ')]
+## 安装
 
-为兼容框架动态增删、重排class，class匹配采用按token的`contains(concat(' ', normalize-space(@class), ' '), ' <token> ')`断言，与class的顺序和空白无关。程序会自动查找dom结构中是否该xpath语句是唯一指向元素，如果是，则会自动精简，否则，则会继续向上查找，直到最精简且唯一的xpath语句。
+> **目前仅提供源码加载方式**，暂无 Chrome 应用商店上架链接。
 
+### 环境要求
+- Node.js **20+**（以 `package.json` 的 `engines` 字段为准，Vite 6 要求 Node 20 及以上）
 
-#### 重构
+### 本地加载步骤
+```bash
+# 1. 克隆项目
+git clone https://github.com/mic1on/xpath-helper-plus.git
+cd xpath-helper-plus
 
-与原有的xpath helper不同的是，这次chrome插件采用Vue3+vite来开发，面向组件进行开发，通过vite打包成chrome插件规范的文件目录结构
+# 2. 安装依赖
+npm install
 
-#### 安装
+# 3. 构建扩展（产物在 dist/）
+npm run build
 
-环境要求：Node.js 20+（以 `package.json` 的 `engines` 字段为准，Vite 6 要求 Node 20 及以上）。
+# 4. Chrome 扩展管理页 → 开发者模式 → 加载已解压的扩展程序 → 选择 dist 目录
+```
 
-clone项目后，进入本项目：
-> cd xpath-helper-plus
+---
 
-安装依赖：
-> npm install
+## 开发 / 构建
 
-打包插件：
-> npm run build
+| 命令 | 说明 |
+|------|------|
+| `npm run dev` | 监听模式构建（开发时用，修改代码自动重建） |
+| `npm run build` | 生产构建，输出到 `dist/`（可直接加载为扩展） |
+| `npm run typecheck` | TypeScript 类型检查（`vue-tsc --noEmit`） |
+| `npm run test:unit` | 单元测试（`vitest run`） |
+| `npm run test:e2e` | 端到端测试 |
 
-生成的插件文件在dist目录下，可以直接chrome浏览器中加载此目录。
+### 发布流程
+- 版本号单一来源：`package.json` 的 `version` 字段。
+- 推送 `v*` 标签（如 `git tag v1.0.8 && git push origin v1.0.8`）触发 GitHub Actions **Build Release** 工作流：
+  1. `npm ci` → `typecheck` → `test:unit` → `build`
+  2. `scripts/package-release.mjs` 将 `dist/` 打包为 `xpath-helper-plus-v<version>.zip`
+  3. 上传为 GitHub Release 附件
 
-#### 使用
+---
 
-安装完扩展后，在浏览器右上角会出现本插件的图标，点击后会弹出一个窗口。
+## 许可证
 
-姿势1：你可以和xpath helper一样在左侧编辑xpath语句。
-
-姿势2：你也可以按住shift键，鼠标在网页元素中选择定位的元素。
-
-除了点击图标，你还可以使用快捷键 `Alt+Shift+X` 来切换浮动栏，效果与点击图标完全一致。该快捷键可在 `chrome://extensions/shortcuts` 中自定义。
-
-
-
-#### 最后
-
-本项目是一个使用vue3+vite开发chrome插件的开端，未来可能会提供更多的功能。或者在此基础上开发其他插件。
+MIT
