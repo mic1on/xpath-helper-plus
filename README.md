@@ -29,6 +29,8 @@
 
 #### 安装
 
+环境要求：Node.js 20+（以 `package.json` 的 `engines` 字段为准，Vite 6 要求 Node 20 及以上）。
+
 clone项目后，进入本项目：
 > cd xpath-helper-plus
 
