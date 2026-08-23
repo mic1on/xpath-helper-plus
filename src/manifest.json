@@ -35,5 +35,14 @@
     "permissions": [
       "activeTab",
       "scripting"
-    ]
+    ],
+    "commands": {
+      "toggle-bar": {
+        "suggested_key": {
+          "default": "Alt+Shift+X",
+          "mac": "Alt+Shift+X"
+        },
+        "description": "Toggle the XPath Helper Plus floating bar (customizable at chrome://extensions/shortcuts)"
+      }
+    }
 }
