@@ -26,7 +26,11 @@ export function useXPathWorkbench() {
       xpathResult.value = response?.[0] ?? ''
       xpathResultCount.value = response?.[1] ?? null
     })
-    // Record successful query execution into history
+  }
+
+  // Record to history only on explicit user action (Enter key or Run), not on every keystroke
+  const runQuery = () => {
+    executeQuery()
     addToHistory(xpathRule.value)
   }
 
@@ -98,5 +102,6 @@ export function useXPathWorkbench() {
     addToQueryHistory: addToHistory,
     clearQueryHistory: clearHistory,
     toggleQueryPin: togglePin,
+    runQuery,
   }
 }

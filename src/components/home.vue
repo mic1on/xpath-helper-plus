@@ -20,6 +20,7 @@ const {
   queryHistory,
   clearQueryHistory,
   toggleQueryPin,
+  runQuery,
 } = useXPathWorkbench()
 </script>
 
@@ -40,6 +41,7 @@ const {
       @select-history="(q: string) => (xpathRule = q)"
       @clear-history="clearQueryHistory"
       @toggle-pin="toggleQueryPin"
+      @run-query="runQuery"
     />
     <ResultPreviewCard
       v-model="xpathResult"

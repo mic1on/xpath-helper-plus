@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 
 interface HistoryItem {
   query: string
@@ -26,12 +26,22 @@ const emit = defineEmits([
   'select-history',
   'clear-history',
   'toggle-pin',
+  'run-query',
 ])
 
 const showHistory = ref(false)
+const dropdownRef = ref<HTMLDivElement | null>(null)
 
 const handleInput = (event: Event) => {
   emit('update:modelValue', (event.target as HTMLTextAreaElement).value)
+}
+
+const handleKeyDown = (event: KeyboardEvent) => {
+  // Enter key (without Shift) runs the query
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault()
+    emit('run-query')
+  }
 }
 
 const handleShortChange = (event: Event) => {
@@ -60,6 +70,21 @@ const handleTogglePin = (query: string, event: Event) => {
   event.stopPropagation()
   emit('toggle-pin', query)
 }
+
+// Click outside to close dropdown
+const handleClickOutside = (event: MouseEvent) => {
+  if (dropdownRef.value && !dropdownRef.value.contains(event.target as Node)) {
+    showHistory.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 
 const formatTime = (timestamp: number) => {
   const date = new Date(timestamp)
@@ -137,7 +162,7 @@ const formatTime = (timestamp: number) => {
             <span class="xh-history-count" v-if="queryHistory.length">{{ queryHistory.length }}</span>
           </button>
           <transition name="xh-history-fade">
-            <div v-show="showHistory" class="xh-history-dropdown" @click.outside="showHistory = false">
+            <div v-show="showHistory" ref="dropdownRef" class="xh-history-dropdown">
               <div class="xh-history-dropdown__header">
                 <span>查询历史</span>
                 <button
@@ -179,6 +204,7 @@ const formatTime = (timestamp: number) => {
       spellcheck="false"
       :value="modelValue"
       @input="handleInput"
+      @keydown="handleKeyDown"
     ></textarea>
   </section>
 </template>
