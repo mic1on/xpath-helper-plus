@@ -1,6 +1,6 @@
 /** Message sent from popup (home) to content script */
 export interface QueryMessage {
-  cmd: 'xpath' | 'css'
+  cmd: 'xpath'
   value: string
 }
 
