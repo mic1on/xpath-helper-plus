@@ -8,6 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -20,6 +22,7 @@
     "@types/chrome": "0.0.190",
     "@types/node": "^18.0.0",
     "@vitejs/plugin-vue": "^2.3.3",
+    "jsdom": "^22.1.0",
     "rollup-plugin-copy": "^3.4.0",
     "typescript": "~4.7.4",
     "unocss": "^0.52.5",
@@ -27,6 +30,7 @@
     "unplugin-vue-components": "^0.19.6",
     "vite": "^2.9.9",
     "vite-plugin-crx-reload": "^0.0.1",
+    "vitest": "^1.6.1",
     "vue-tsc": "~0.40.13",
     "ws": "^8.13.0"
   }
