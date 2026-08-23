@@ -15,12 +15,12 @@ import {
 // the toShort / containsId branches; jsdom was chosen for that reason.
 //
 // Several assertions below are CHARACTERIZATION tests: they lock in the code's
-// CURRENT behavior, including known-questionable output tracked in issues
-// #12 (class exact-match) and #13 (getElementIndex vs XPath position
-// semantics). Those are intentionally NOT fixed here - this PR only adds the
-// test harness and must stay green and behavior-preserving. The TODO(#12) /
-// TODO(#13) comments mark the assertions that the follow-up bug-fix PRs should
-// flip once the behavior is corrected.
+// CURRENT behavior, including known-questionable output tracked in issue
+// #12 (class exact-match). The #13 bug (getElementIndex vs XPath position
+// semantics) has been fixed in this PR: getElementIndex now counts over the
+// same set the emitted predicate selects, and the previously TODO(#13)
+// characterization assertions have been flipped to the corrected behavior and
+// backed by behavioral tests that evaluate the full generated query.
 
 function setDom(html: string) {
   document.body.innerHTML = html
@@ -114,19 +114,34 @@ describe('getElementIndex', () => {
     expect(getElementIndex(children[2])).toBe(2)
   })
 
-  it('CHARACTERIZATION: elementsShareFamily also requires matching class, so same-tag siblings with different classes are miscounted', () => {
-    // TODO(#13): elementsShareFamily requires tagName AND class AND id to match,
-    // but the emitted predicate is a bare positional index like div[2], whose
-    // XPath semantics only consider the tag name. Here three <div> siblings have
-    // classes x / y / x. Because the middle <div class="y"> is not counted as
-    // "same family" as <div class="x">, getElementIndex assigns the third div
-    // index 2 - but XPath div[2] actually selects the SECOND div (class="y").
-    // This asserts the current (buggy) counting; flip in the #13 fix.
+  it('counts same-tag siblings by node test regardless of differing classes (#13)', () => {
+    // Fixed #13: getElementIndex counts purely by node test (tagName) when
+    // called without a predicate matcher, matching XPath `div[n]` position
+    // semantics. Here three <div> siblings have classes x / y / x. The bare
+    // index therefore numbers them 1, 2, 3 by position - the middle
+    // <div class="y"> is NOT skipped as it was under the old
+    // tag+class+id "same family" rule.
     setDom('<section><div class="x">1</div><div class="y">2</div><div class="x">3</div></section>')
     const divs = document.querySelectorAll('div')
     expect(getElementIndex(divs[0])).toBe(1)
-    expect(getElementIndex(divs[1])).toBe(0) // lone member of its (class="y") family
-    expect(getElementIndex(divs[2])).toBe(2) // TODO(#13): XPath div[2] != this element
+    expect(getElementIndex(divs[1])).toBe(2)
+    expect(getElementIndex(divs[2])).toBe(3)
+  })
+
+  it('counts over a predicate-narrowed set when a matcher is supplied (#13)', () => {
+    // When makeQueryForElement emits a class/id predicate, getElementIndex is
+    // called with a matcher so it counts over EXACTLY the siblings that also
+    // satisfy that predicate - because XPath applies the predicate before the
+    // position. Here two <div class="x"> straddle a <div class="y">; counting
+    // only class="x" siblings makes the third div index 2 within that set.
+    setDom('<section><div class="x">1</div><div class="y">2</div><div class="x">3</div></section>')
+    const divs = document.querySelectorAll('div')
+    const isX = (el: Element) => (el.className || '').split(/\s+/).includes('x')
+    expect(getElementIndex(divs[0], isX)).toBe(1)
+    expect(getElementIndex(divs[2], isX)).toBe(2)
+    // The class="y" div is the lone member of the class="y" set.
+    const isY = (el: Element) => (el.className || '').split(/\s+/).includes('y')
+    expect(getElementIndex(divs[1], isY)).toBe(0)
   })
 })
 
@@ -230,11 +245,13 @@ describe('makeQueryForElement', () => {
     expect(makeQueryForElement(p, true)).toBe("//p[@id='uniqp']")
   })
 
-  it('CHARACTERIZATION: toShort keeps building a relative path when the leaf is not unique on its own', () => {
-    // TODO(#13): the short path for a non-unique class element still carries the
-    // positional index derived from getElementIndex. Here two identical
-    // <li class="item"> exist, so the class contains() predicate is not unique
-    // and the first li keeps its [1] index. Locks in current #13 behavior.
+  it('toShort keeps building a relative path with a position index consistent with XPath (#13)', () => {
+    // Fixed #13: the short path for a non-unique class element carries the
+    // position index counted over the SAME set the class predicate selects.
+    // Here two identical <li class="item"> exist, so the class contains()
+    // predicate is not unique and the first li keeps index [1] - which under
+    // XPath resolves to exactly the first matching li (asserted behaviorally
+    // below).
     setDom(
       '<div id="root"><ul><li class="item">a</li><li class="item">b</li></ul></div>'
     )
@@ -264,5 +281,77 @@ describe('makeQueryForElement', () => {
     expect(makeQueryForElement(span, true, false, true)).toBe(
       "//span[contains(@id,'ab-cd-ef')]"
     )
+  })
+})
+
+// Behavioral #13 tests: build a synthetic DOM with same-tag / different-class
+// siblings, generate the FULL query, evaluate it with the real XPath engine,
+// and assert it resolves to EXACTLY the originally-selected node. This proves
+// the index+predicate combination is correct under real XPath semantics.
+describe('makeQueryForElement #13 behavioral (query resolves to the selected node)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  // Evaluate a query and return the single matched element (or null).
+  function resolveOne(query: string): Node | null {
+    const [result, count] = evaluateQueryCount(query)
+    if (count !== 1) {
+      return null
+    }
+    return result.snapshotItem(0)
+  }
+
+  it('resolves to the exact same-tag sibling when siblings have differing classes', () => {
+    // The #13 reproduction shape: two <div> with different classes. Selecting
+    // the second div must generate a query that resolves to exactly that node.
+    setDom('<section><div class="a">1</div><div class="b">2</div></section>')
+    const target = document.querySelectorAll('div')[1]
+    const query = makeQueryForElement(target)
+    expect(resolveOne(query)).toBe(target)
+  })
+
+  it('resolves each of three same-tag siblings whose classes are x / y / x', () => {
+    setDom('<section><div class="x">1</div><div class="y">2</div><div class="x">3</div></section>')
+    const divs = document.querySelectorAll('div')
+    for (let i = 0; i < divs.length; i++) {
+      const query = makeQueryForElement(divs[i])
+      expect(resolveOne(query)).toBe(divs[i])
+    }
+  })
+
+  it('resolves the correct element among same-class and different-class same-tag siblings', () => {
+    // Two <li class="item"> straddle a <li class="other">. XPath applies the
+    // class predicate before the position index, so the index must count only
+    // the class="item" members. Verify every li resolves back to itself.
+    setDom(
+      '<ul><li class="item">a</li><li class="other">b</li><li class="item">c</li></ul>'
+    )
+    const lis = document.querySelectorAll('li')
+    for (let i = 0; i < lis.length; i++) {
+      const query = makeQueryForElement(lis[i])
+      expect(resolveOne(query)).toBe(lis[i])
+    }
+  })
+
+  it('resolves the target when a multi-class sibling shares one class token', () => {
+    // The first div has class "card"; the target shares "card" plus "active".
+    // The emitted predicate for the target requires BOTH tokens, so the index
+    // is counted over that narrower set (here a single element -> no index).
+    setDom(
+      '<section><div class="card">1</div><div class="card active">2</div></section>'
+    )
+    const target = document.querySelectorAll('div')[1]
+    const query = makeQueryForElement(target)
+    expect(resolveOne(query)).toBe(target)
+  })
+
+  it('resolves an id-bearing target unaffected by same-tag class siblings', () => {
+    setDom(
+      '<section><div class="x">1</div><div id="target">2</div><div class="x">3</div></section>'
+    )
+    const target = document.getElementById('target')!
+    const query = makeQueryForElement(target)
+    expect(resolveOne(query)).toBe(target)
   })
 })
