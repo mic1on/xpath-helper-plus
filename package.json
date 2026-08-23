@@ -3,6 +3,9 @@
   "author": "MicLon",
   "private": true,
   "version": "1.0.7",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite build --watch --mode development",
     "build": "vite build",
