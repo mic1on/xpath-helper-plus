@@ -10,7 +10,6 @@ function getChromeApi(): typeof chrome | undefined {
 export function useXPathWorkbench() {
   const { isSupported, copy } = useClipboard()
 
-  const mode = ref<string>('xpath')
   const xpathRule = ref<string>("string('xpath helper plus')")
   const xpathShort = useLocalStorage<boolean>('xpathShort', false)
   const xpathBatch = useLocalStorage<boolean>('xpathBatch', false)
@@ -19,7 +18,7 @@ export function useXPathWorkbench() {
   const xpathResultCount = ref<number | null>(null)
 
   const executeQuery = () => {
-    const message: PopupMessage = { cmd: mode.value as 'xpath' | 'css', value: xpathRule.value }
+    const message: PopupMessage = { cmd: 'xpath', value: xpathRule.value }
     sendMessageToContentScript(message, (response: any) => {
       xpathResult.value = response?.[0] ?? ''
       xpathResultCount.value = response?.[1] ?? null
@@ -76,7 +75,6 @@ export function useXPathWorkbench() {
   handleContainsId(xpathContainsId.value)
 
   return {
-    mode,
     xpathRule,
     xpathShort,
     xpathBatch,
