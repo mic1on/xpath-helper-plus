@@ -79,4 +79,4 @@ npm run build
 
 ## 许可证
 
-MIT
+本项目基于 [Apache License 2.0](./LICENSE) 授权。
