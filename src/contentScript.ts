@@ -1,15 +1,7 @@
 import Bar from './bar'
 import { clearHighlights, evaluateQuery, makeQueryForElement } from './xpath'
+import { sendMessageToPopup } from './lib/messaging'
 import type { PopupMessage } from './types/messages'
-
-function sendMessageToPopup(message: { query: string }): void {
-  try {
-    const maybePromise = chrome.runtime.sendMessage(message)
-    if (maybePromise && typeof (maybePromise as Promise<unknown>).catch === 'function') {
-      ;(maybePromise as Promise<unknown>).catch(() => {})
-    }
-  } catch {}
-}
 
 const bar = new Bar()
 

@@ -7,8 +7,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "vite build --watch --mode development",
-    "build": "vite build",
+    "dev": "BUILD_TARGET=content vite build --watch --mode development & vite build --watch --mode development",
+    "build": "vite build && BUILD_TARGET=content vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
