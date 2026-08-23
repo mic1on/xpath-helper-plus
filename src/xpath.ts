@@ -1,14 +1,22 @@
-const elementsShareFamily = (primaryEl: Element, siblingEl: Element) => {
-    const p = primaryEl, s = siblingEl;
-    return (p.tagName === s.tagName &&
-        (!p.className || p.className === s.className) &&
-        (!p.id || p.id === s.id));
-};
-const getElementIndex = (el: Element) => {
+// A sibling matcher decides whether a same-tag sibling belongs to the SAME set
+// that the emitted component predicate selects. XPath applies a predicate
+// BEFORE the positional index, so `tag[predicate][n]` means "the n-th element
+// among the tag siblings that ALSO satisfy `predicate`", NOT the n-th tag
+// overall. To keep the position index consistent with real XPath evaluation
+// (issue #13), getElementIndex counts over exactly that predicate-narrowed set.
+type SiblingMatcher = (siblingEl: Element) => boolean;
+
+const getElementIndex = (el: Element, matches?: SiblingMatcher) => {
+    // A sibling is in the counted set when it shares the node test (tagName) and
+    // - when a predicate is emitted for this component - also satisfies that
+    // predicate. With no predicate (bare `tag` component), we count purely by
+    // tagName, matching XPath `tag[n]` position semantics.
+    const inSameSet = (sib: Element) =>
+        sib.tagName === el.tagName && (!matches || matches(sib));
     let index = 1;  // XPath is one-indexed
     let sib: any;
     for (sib = el.previousSibling; sib; sib = sib.previousSibling) {
-        if (sib.nodeType === Node.ELEMENT_NODE && elementsShareFamily(el, sib)) {
+        if (sib.nodeType === Node.ELEMENT_NODE && inSameSet(sib)) {
             index++;
         }
     }
@@ -16,7 +24,7 @@ const getElementIndex = (el: Element) => {
         return index;
     }
     for (sib = el.nextSibling; sib; sib = sib.nextSibling) {
-        if (sib.nodeType === Node.ELEMENT_NODE && elementsShareFamily(el, sib)) {
+        if (sib.nodeType === Node.ELEMENT_NODE && inSameSet(sib)) {
             return 1;
         }
     }
@@ -83,6 +91,26 @@ const makeClassComponent = (tagName: string, className: string) => {
     return tagName + '[' + predicate + ']';
 };
 
+// Whether an element satisfies the full component predicate, evaluated by the
+// real XPath engine relative to that element (self::component). This lets
+// getElementIndex count over EXACTLY the set the emitted predicate selects,
+// keeping `tag[predicate][index]` consistent with XPath evaluation order (#13).
+const matchesComponent = (el: Element, component: string) => {
+    try {
+        const result = document.evaluate(
+            'boolean(self::' + component + ')',
+            el,
+            null,
+            XPathResult.BOOLEAN_TYPE,
+            null
+        );
+        return result.booleanValue;
+    } catch (e) {
+        console.log(e);
+        return false;
+    }
+};
+
 const makeQueryForElement = (
     el: any,
     toShort: boolean = false,
@@ -93,12 +121,21 @@ const makeQueryForElement = (
     for (; el && el.nodeType === Node.ELEMENT_NODE; el = el.parentNode) {
         el.classList.remove('xh-highlight')
         let component = el.tagName.toLowerCase();
-        const index = getElementIndex(el);
         if (el.id) {
             component = makeIdComponent(component, el.id, toShort && containsId);
         } else if (el.className) {
             component = makeClassComponent(component, el.className);
         }
+        // Count the position index over EXACTLY the set the emitted predicate
+        // selects, so `tag[predicate][index]` resolves to this element under
+        // real XPath semantics (a predicate is applied BEFORE the position, so
+        // a pure-tag index would be wrong once a class/id predicate is present,
+        // #13). matchesComponent re-uses the real XPath engine for parity.
+        const predicated = component !== el.tagName.toLowerCase();
+        const index = getElementIndex(
+            el,
+            predicated ? (sib: Element) => matchesComponent(sib, component) : undefined
+        );
         if (!batch && index >= 1) {
             component += '[' + index + ']';
         }
