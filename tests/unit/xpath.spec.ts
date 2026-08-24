@@ -181,10 +181,41 @@ describe('makeQueryForElement', () => {
 
   it('combines one contains() predicate per class token with `and` (multi-class)', () => {
     // A multi-class element yields one whitespace-normalized contains() per
-    // token, joined with `and`, so the match is order-independent.
+    // STRUCTURAL token, joined with `and`, so the match is order-independent.
+    // `active` is a volatile/state token (#12 scenario 2) and is dropped so a
+    // runtime toggle of `active` cannot break the locator.
     setDom('<div><span class="btn active large">t</span></div>')
     expect(makeQueryForElement(document.querySelector('span')!)).toBe(
-      "/html/body/div/span[contains(concat(' ', normalize-space(@class), ' '), ' btn ') and contains(concat(' ', normalize-space(@class), ' '), ' active ') and contains(concat(' ', normalize-space(@class), ' '), ' large ')]"
+      "/html/body/div/span[contains(concat(' ', normalize-space(@class), ' '), ' btn ') and contains(concat(' ', normalize-space(@class), ' '), ' large ')]"
+    )
+  })
+
+  it('drops volatile state class tokens so runtime toggles do not break the locator (#12)', () => {
+    // Structural token `card` is kept; `active` (state) is excluded. The
+    // generated query must still uniquely resolve the element AFTER the state
+    // class is removed at runtime.
+    setDom('<div><span class="card active">t</span></div>')
+    const query = makeQueryForElement(document.querySelector('span')!)
+    expect(query).toBe(
+      "/html/body/div/span[contains(concat(' ', normalize-space(@class), ' '), ' card ')]"
+    )
+    setDom('<div><span class="card">t</span></div>')
+    const [, count] = evaluateQueryCount(query)
+    expect(count).toBe(1)
+  })
+
+  it('treats prefixed/suffixed state conventions (is-open, tab-active) as volatile', () => {
+    setDom('<div><span class="nav-item is-open tab-active">t</span></div>')
+    // Only the structural `nav-item` token survives.
+    expect(makeQueryForElement(document.querySelector('span')!)).toBe(
+      "/html/body/div/span[contains(concat(' ', normalize-space(@class), ' '), ' nav-item ')]"
+    )
+  })
+
+  it('keeps all tokens when every class looks volatile (predicate still beats bare tag)', () => {
+    setDom('<div><span class="active hover">t</span></div>')
+    expect(makeQueryForElement(document.querySelector('span')!)).toBe(
+      "/html/body/div/span[contains(concat(' ', normalize-space(@class), ' '), ' active ') and contains(concat(' ', normalize-space(@class), ' '), ' hover ')]"
     )
   })
 
