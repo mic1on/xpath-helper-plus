@@ -30,3 +30,10 @@
 img.xh-highlight {
     opacity: 0.5 !important;
 }
+
+/* Pinned context node for relative XPath generation (issue #26). */
+.xh-context {
+    outline: 2px dashed #f59e0b !important;
+    outline-offset: -1px !important;
+    background-color: rgba(245, 158, 11, 0.12) !important;
+}

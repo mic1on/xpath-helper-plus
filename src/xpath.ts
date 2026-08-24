@@ -42,9 +42,15 @@ const escapeXPathString = (value: string) => {
     return 'concat(' + value.split('\'').map(part => '\'' + part + '\'').join(', "\'", ') + ')';
 };
 
-const countXPathMatches = (query: string) => {
+const countXPathMatches = (query: string, contextNode?: Node) => {
     try {
-        const nodes = document.evaluate(query, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        const nodes = document.evaluate(
+            query,
+            contextNode ?? document,
+            null,
+            XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+            null
+        );
         return nodes.snapshotLength;
     } catch (e) {
         console.log(e);
@@ -115,10 +121,23 @@ const makeQueryForElement = (
     el: any,
     toShort: boolean = false,
     batch: boolean = false,
-    containsId: boolean = false
+    containsId: boolean = false,
+    // A pinned context element (issue #26). When provided and the walk reaches
+    // it, generation stops and the path is emitted RELATIVE to the context: it
+    // starts with `.` (e.g. `./div[2]/span[1]`) or, in short mode, `.//...`
+    // when a component is unique within the context (e.g. `.//span[...]`). This
+    // is what crawler loops want: an expression evaluated against each context
+    // node rather than from the document root.
+    contextEl: Element | null = null
 ) => {
     let query = '';
     for (; el && el.nodeType === Node.ELEMENT_NODE; el = el.parentNode) {
+        // Reached the pinned context node: everything accumulated so far is the
+        // path relative to it. Prefix `.` so the query starts at the context
+        // (issue #26) and stop climbing toward the document root.
+        if (contextEl && el === contextEl) {
+            return '.' + query;
+        }
         el.classList.remove('xh-highlight')
         let component = el.tagName.toLowerCase();
         if (el.id) {
@@ -140,9 +159,18 @@ const makeQueryForElement = (
             component += '[' + index + ']';
         }
         try {
-            if (toShort && countXPathMatches('//' + component) === 1) {
-                query = '//' + component + query;
-                break
+            if (toShort) {
+                // In relative mode a component is "short-able" when it is unique
+                // among the context's descendants, so we can collapse the path
+                // to `.//component`. Otherwise fall back to global uniqueness.
+                if (contextEl) {
+                    if (countXPathMatches('.//' + component, contextEl) === 1) {
+                        return './/' + component + query;
+                    }
+                } else if (countXPathMatches('//' + component) === 1) {
+                    query = '//' + component + query;
+                    break
+                }
             }
         } catch (e) {
             // If the query is invalid, just return the component.
@@ -164,7 +192,30 @@ const clearHighlights = () => {
     const els = document.querySelectorAll('.xh-highlight');
     els.forEach(el => el.classList.remove('xh-highlight'));
 };
-const evalNodeValue = (xpathResult: XPathResult) => {
+
+// Collect the union of attribute names present on the matched element nodes,
+// sorted and de-duplicated. This powers the result area's "append extraction"
+// helper (issue #24): the popup renders one button per real attribute so
+// crawler developers can append `/@data-id`, `/@class`, etc. in a single click.
+// Only element nodes carry attributes; text/attribute result nodes contribute
+// none, and the extension's own transient highlight class is not filtered here
+// because attributes (not class values) are what we enumerate.
+const collectAttributeNames = (els: Element[]): string[] => {
+    const names = new Set<string>();
+    for (const el of els) {
+        const attrs = el.attributes;
+        if (!attrs) continue;
+        for (let i = 0; i < attrs.length; i++) {
+            const name = attrs[i]?.name;
+            if (name) {
+                names.add(name);
+            }
+        }
+    }
+    return Array.from(names).sort();
+};
+
+const evalNodeValue = (xpathResult: XPathResult): [string, number, string[]] => {
     let str = '';
     let nodeCount = 0;
     const toHighlight: Element[] = [];
@@ -201,9 +252,9 @@ const evalNodeValue = (xpathResult: XPathResult) => {
     }
 
     highlight(toHighlight);
-    return [str, nodeCount];
+    return [str, nodeCount, collectAttributeNames(toHighlight)];
 }
-const evaluateQuery = (query: string) => {
+const evaluateQuery = (query: string): [string, number, string[]] => {
     let xpathResult = null;
     let str = '';
     let nodeCount = 0;
@@ -217,7 +268,7 @@ const evaluateQuery = (query: string) => {
     }
 
     if (!xpathResult) {
-        return [str, nodeCount];
+        return [str, nodeCount, []];
     }
 
     return evalNodeValue(xpathResult);
@@ -232,5 +283,6 @@ export {
     // change to the extension, which imports only the functions above).
     escapeXPathString,
     getIdContainsCandidates,
-    getElementIndex
+    getElementIndex,
+    collectAttributeNames
 }

@@ -14,6 +14,7 @@ defineProps<{
   xpathContainsId: boolean
   isSupported: boolean
   queryHistory: HistoryItem[]
+  contextActive: boolean
 }>()
 
 const emit = defineEmits([
@@ -27,6 +28,8 @@ const emit = defineEmits([
   'clear-history',
   'toggle-pin',
   'run-query',
+  'set-context',
+  'clear-context',
 ])
 
 const showHistory = ref(false)
@@ -135,6 +138,17 @@ const formatTime = (timestamp: number) => {
           <span class="xh-toggle__track" aria-hidden="true"></span>
           <span>列表模式</span>
         </label>
+        <button
+          class="xh-context-btn"
+          :class="{ 'xh-context-btn--active': contextActive }"
+          type="button"
+          :title="contextActive
+            ? '已固定上下文节点，Shift 悬停元素生成相对表达式；点击清除'
+            : 'Shift 悬停某容器元素后点击此处设为上下文，生成相对 XPath'"
+          @click="contextActive ? emit('clear-context') : emit('set-context')"
+        >
+          {{ contextActive ? '清除上下文' : '设为上下文' }}
+        </button>
       </div>
       <div v-if="isSupported" class="xh-panel__actions">
         <button class="xh-action" type="button" @click="emit('copy')">复制</button>
