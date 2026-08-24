@@ -19,6 +19,7 @@ A Chrome MV3 developer extension (Vue 3 + Vite) that generates a minimal, unique
 | **一键复制 XPath** | 编辑器顶部“复制”按钮，复制当前 XPath 到剪贴板。 |
 | **一键转 CSS** | 编辑器顶部“复制css”按钮，将当前 XPath 通过 `xpath-to-css` 转为 CSS 选择器并复制。 |
 | **配置持久化** | 三个开关状态通过 `localStorage` 持久化，重启浏览器后保持。 |
+| **iframe 元素定位** | 内容脚本以 `all_frames` 注入所有子框架（含跨源 iframe / `about:blank`），可在 iframe 内 `Shift` 悬停拾取元素；生成的 XPath 相对该 iframe 文档，结果面板显示所属 iframe 徽标，求值自动路由回同一框架（#25）。跨源 iframe 的父子文档互相隔离，因此 XPath 不跨越框架边界。 |
 | **键盘快捷键** | `Alt+Shift+X` 切换浮动栏显示/隐藏（可在 `chrome://extensions/shortcuts` 自定义）。 |
 
 ---

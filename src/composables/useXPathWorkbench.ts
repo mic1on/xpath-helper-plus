@@ -25,15 +25,26 @@ export function useXPathWorkbench() {
   // the pin lives on a specific DOM element in the active tab.
   const xpathContextActive = ref<boolean>(false)
 
+  // The frame (iframe) whose element was last selected via Shift+hover (issue
+  // #25). With `all_frames: true` the generated query is relative to that
+  // frame's own document, so evaluation must target the SAME frame.
+  // `activeFrameId` is the Chrome frameId reported on the content script's
+  // notification (0 is the top document). `activeFrameUrl` is surfaced in the
+  // UI so users can tell which frame the current query resolves against.
+  const activeFrameId = ref<number>(0)
+  const activeFrameUrl = ref<string>('')
+
   const { history, add: addToHistory, clear: clearHistory, togglePin } = useQueryHistory()
 
   const executeQuery = () => {
     const message: PopupMessage = { cmd: 'xpath', value: xpathRule.value }
+    // Route evaluation to the frame that produced the current query (issue
+    // #25); defaults to the top frame when nothing iframe-specific is selected.
     sendMessageToContentScript(message, (response: any) => {
       xpathResult.value = response?.[0] ?? ''
       xpathResultCount.value = response?.[1] ?? null
       xpathAttributes.value = Array.isArray(response?.[2]) ? response[2] : []
-    })
+    }, activeFrameId.value)
   }
 
   // Record to history only on explicit user action (Enter key or Run), not on every keystroke
@@ -60,17 +71,20 @@ export function useXPathWorkbench() {
   }
 
   const handlePosition = () => {
-    sendMessageToContentScript({ cmd: 'position' })
+    // The bar lives in the top frame only; always target it.
+    sendMessageToContentScript({ cmd: 'position' }, undefined, 0)
   }
 
   // Pin / clear the relative-XPath context node in the page (issue #26). The
   // active state is confirmed by the content script's contextActive reply.
+  // Routed to the active frame so the pin lands in the same document as the
+  // last-selected element (issue #25).
   const handleSetContext = () => {
-    sendMessageToContentScript({ cmd: 'setContext' })
+    sendMessageToContentScript({ cmd: 'setContext' }, undefined, activeFrameId.value)
   }
 
   const handleClearContext = () => {
-    sendMessageToContentScript({ cmd: 'clearContext' })
+    sendMessageToContentScript({ cmd: 'clearContext' }, undefined, activeFrameId.value)
   }
 
   const handleCopy = () => {
@@ -102,9 +116,14 @@ export function useXPathWorkbench() {
   }
 
   // Listen for query results from content script
-  getChromeApi()?.runtime?.onMessage?.addListener((request: any) => {
+  getChromeApi()?.runtime?.onMessage?.addListener((request: any, sender: any) => {
     if (request.query) {
       xpathRule.value = request.query
+      // Record which frame produced this query so evaluation is routed back to
+      // the same frame (issue #25). `sender.frameId` is undefined only in
+      // non-extension contexts; default to the top frame (0) then.
+      activeFrameId.value = typeof sender?.frameId === 'number' ? sender.frameId : 0
+      activeFrameUrl.value = request.frameUrl ?? ''
     }
     // Context pin state confirmation (issue #26).
     if (typeof request.contextActive === 'boolean') {
@@ -126,6 +145,7 @@ export function useXPathWorkbench() {
     xpathResultCount,
     xpathAttributes,
     xpathContextActive,
+    activeFrameUrl,
     isSupported,
     handleShort,
     handleBatch,

@@ -12,6 +12,7 @@ const {
   xpathResultCount,
   xpathAttributes,
   xpathContextActive,
+  activeFrameUrl,
   isSupported,
   handleShort,
   handleBatch,
@@ -55,6 +56,7 @@ const {
       v-model="xpathResult"
       :result-count="xpathResultCount"
       :attributes="xpathAttributes"
+      :frame-url="activeFrameUrl"
       @position="handlePosition"
       @append-extraction="handleAppendExtraction"
     />

@@ -5,6 +5,9 @@ const props = defineProps<{
   modelValue: string
   resultCount: number | null
   attributes: string[]
+  // URL of the frame the current query resolves against (issue #25). Empty or
+  // the top document => no iframe badge is shown.
+  frameUrl?: string
 }>()
 
 const emit = defineEmits(['update:modelValue', 'position', 'append-extraction'])
@@ -12,6 +15,22 @@ const emit = defineEmits(['update:modelValue', 'position', 'append-extraction'])
 const handleInput = (event: Event) => {
   emit('update:modelValue', (event.target as HTMLTextAreaElement).value)
 }
+
+// Show a compact iframe badge only when the active query belongs to a child
+// frame (issue #25). We compare against the popup's own top-level location: if
+// the frame URL differs, the selection came from an iframe, so surface which
+// one. A short label (origin + trailing path segment) keeps it readable.
+const frameBadge = computed(() => {
+  const url = props.frameUrl
+  if (!url) return ''
+  try {
+    const parsed = new URL(url)
+    const lastSeg = parsed.pathname.split('/').filter(Boolean).pop() ?? ''
+    return lastSeg ? `${parsed.host}/${lastSeg}` : parsed.host
+  } catch {
+    return url
+  }
+})
 
 // Common extraction steps offered first (issue #24). `text()` grabs the node
 // text; the rest are frequently-wanted attributes. Real attributes discovered
@@ -33,6 +52,13 @@ const suggestions = computed(() => {
         <span v-show="resultCount" class="xh-count">{{ resultCount }}</span>
       </div>
       <div class="xh-panel__actions">
+        <span
+          v-if="frameBadge"
+          class="xh-frame-badge"
+          :title="`当前 XPath 相对于 iframe: ${frameUrl}`"
+        >
+          iframe: {{ frameBadge }}
+        </span>
         <button class="xh-action" type="button" @click="emit('position')">换个位置</button>
       </div>
     </header>

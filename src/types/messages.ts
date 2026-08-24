@@ -30,6 +30,15 @@ export interface ContextMessage {
 /** Message sent from content script to popup */
 export interface QueryResult {
   query: string
+  /**
+   * URL of the frame that generated this query (issue #25). With
+   * `all_frames: true` the content script runs in every frame, so a query
+   * produced by Shift+hover inside an iframe is relative to THAT frame's
+   * document. The popup pairs this URL with the `sender.frameId` it reads off
+   * the message to label the active frame and route later evaluation back to
+   * the correct frame.
+   */
+  frameUrl?: string
 }
 
 /**
