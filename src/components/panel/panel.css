@@ -1,6 +1,6 @@
 .xh-panel {
   position: relative;
-  height: 100px;
+  height: 170px;
   overflow: hidden;
   padding: 8px;
   border: 1px solid rgba(125, 249, 255, 0.24);
@@ -439,6 +439,75 @@
   outline: 1px solid #7df9ff;
   outline-offset: 2px;
 }
+
+.xh-result-list {
+  position: relative;
+  z-index: 1;
+  height: 98px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid rgba(125, 249, 255, 0.18);
+  background: rgba(2, 8, 13, 0.84);
+  list-style: none;
+  scrollbar-color: rgba(125, 249, 255, 0.45) transparent;
+  scrollbar-width: thin;
+}
+
+.xh-result-list li + li {
+  border-top: 1px solid rgba(125, 249, 255, 0.1);
+}
+
+.xh-result-item {
+  display: grid;
+  grid-template-columns: 24px max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 31px;
+  padding: 4px 8px;
+  border: 0;
+  color: #e7fffb;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.xh-result-item:hover,
+.xh-result-item:focus-visible {
+  outline: 0;
+  background: rgba(14, 116, 144, 0.28);
+}
+
+.xh-result-item:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.xh-result-item__index {
+  color: rgba(219, 255, 250, 0.42);
+  font-family: "SF Mono", "Cascadia Code", "Menlo", monospace;
+  font-size: 10px;
+  text-align: right;
+}
+
+.xh-result-item__tag {
+  color: #67e8f9;
+  font-family: "SF Mono", "Cascadia Code", "Menlo", monospace;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.xh-result-item__preview {
+  grid-column: 3;
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(231, 255, 251, 0.88);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .xh-textarea {
   position: relative;
   z-index: 1;
@@ -468,6 +537,6 @@
 
 @media (max-width: 760px) {
   .xh-panel {
-    height: auto;
+    height: 170px;
   }
 }

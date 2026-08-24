@@ -10,6 +10,7 @@ const {
   xpathContainsId,
   xpathResult,
   xpathResultCount,
+  xpathResultItems,
   xpathAttributes,
   xpathContextActive,
   activeFrameUrl,
@@ -17,6 +18,7 @@ const {
   handleShort,
   handleBatch,
   handleContainsId,
+  handleFocusResult,
   handlePosition,
   handleSetContext,
   handleClearContext,
@@ -55,9 +57,11 @@ const {
     <ResultPreviewCard
       v-model="xpathResult"
       :result-count="xpathResultCount"
+      :items="xpathResultItems"
       :attributes="xpathAttributes"
       :frame-url="activeFrameUrl"
       @position="handlePosition"
+      @focus-result="handleFocusResult"
       @append-extraction="handleAppendExtraction"
     />
   </div>

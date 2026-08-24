@@ -1,7 +1,27 @@
 /** Message sent from popup (home) to content script */
+export interface XPathResultItem {
+  index: number
+  preview: string
+  nodeType: 'element' | 'attribute' | 'text' | 'other'
+  tagName?: string
+}
+
+export type XPathEvaluationResponse = [
+  value: string,
+  count: number,
+  attributes: string[],
+  items: XPathResultItem[],
+]
+
 export interface QueryMessage {
   cmd: 'xpath'
   value: string
+}
+
+export interface FocusResultMessage {
+  cmd: 'focusResult'
+  value: string
+  index: number
 }
 
 export interface ToggleMessage {
@@ -51,6 +71,7 @@ export interface ContextStateResult {
 
 export type PopupMessage =
   | QueryMessage
+  | FocusResultMessage
   | ToggleMessage
   | PositionMessage
   | ToggleBarMessage
