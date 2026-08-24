@@ -67,7 +67,7 @@ Open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**,
 | `npm run typecheck` | Run Vue and TypeScript type checking |
 | `npm run test:unit` | Run Vitest unit tests |
 
-The version in `package.json` is the release source of truth. Pushing a `v*` tag runs the GitHub release workflow and packages `dist/` as a release archive.
+The version in `package.json` is the release source of truth. After a PR is merged into `main`, the **Build Release** workflow compares the version before and after the merge. A higher numeric `x.y.z` version runs the quality checks, packages `dist/`, and creates the matching `v<version>` tag and GitHub Release. An unchanged version skips the release, while a downgrade fails the workflow.
 
 ---
 

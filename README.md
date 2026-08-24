@@ -74,10 +74,11 @@ npm run build
 
 ### 发布流程
 - 版本号单一来源：`package.json` 的 `version` 字段。
-- 推送 `v*` 标签（如 `git tag v1.0.8 && git push origin v1.0.8`）触发 GitHub Actions **Build Release** 工作流：
+- PR 合并到 `main` 后，GitHub Actions **Build Release** 会比较合并前后的 `package.json` 版本。只有版本号按 `x.y.z` 格式升级时才发布；版本未变则跳过，版本降级则失败。
+- 检测到版本升级后，工作流会：
   1. `npm ci` → `typecheck` → `test:unit` → `build`
   2. `scripts/package-release.mjs` 将 `dist/` 打包为 `xpath-helper-plus-v<version>.zip`
-  3. 上传为 GitHub Release 附件
+  3. 自动创建 `v<version>` 标签和 GitHub Release，并上传压缩包附件
 
 ---
 
