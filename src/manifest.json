@@ -1,7 +1,8 @@
 {
-    "name": "Xpath Helper Plus",
+    "name": "__MSG_extensionName__",
     "version": "1.0.7",
-    "description": "Xpath Helper Plus",
+    "description": "__MSG_extensionDescription__",
+    "default_locale": "en",
     "manifest_version": 3,
     "action": {
       "default_icon": {
@@ -9,7 +10,7 @@
         "24": "assets/icon24.png",
         "32": "assets/icon32.png"
       },
-      "default_title": "Xpath Helper Plus"
+      "default_title": "__MSG_actionTitle__"
     },
     "background": {
         "service_worker": "background.js",
@@ -42,7 +43,7 @@
           "default": "Alt+Shift+X",
           "mac": "Alt+Shift+X"
         },
-        "description": "Toggle the XPath Helper Plus floating bar (customizable at chrome://extensions/shortcuts)"
+        "description": "__MSG_toggleBarCommand__"
       }
     }
 }

@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from '@/i18n'
 import type { XPathResultItem } from '@/types/messages'
+
+const { locale, setLocale, t } = useI18n()
 
 const props = defineProps<{
   modelValue: string
@@ -47,31 +50,49 @@ const suggestions = computed(() => {
 </script>
 
 <template>
-  <section class="xh-panel xh-panel--result" aria-label="XPath result preview">
+  <section class="xh-panel xh-panel--result" :aria-label="t('xpathResult')">
     <header class="xh-panel__header">
       <div class="xh-panel__title-group">
-        <span class="xh-panel__eyebrow">匹配结果</span>
+        <span class="xh-panel__eyebrow">{{ t('matchedResults') }}</span>
         <span v-show="resultCount" class="xh-count">{{ resultCount }}</span>
       </div>
       <div class="xh-panel__actions">
+        <div class="xh-language" role="group" :aria-label="t('language')">
+          <button
+            class="xh-language__option"
+            :class="{ 'xh-language__option--active': locale === 'zh' }"
+            type="button"
+            :aria-pressed="locale === 'zh'"
+            :title="t('chinese')"
+            @click="setLocale('zh')"
+          >中</button>
+          <button
+            class="xh-language__option"
+            :class="{ 'xh-language__option--active': locale === 'en' }"
+            type="button"
+            :aria-pressed="locale === 'en'"
+            :title="t('english')"
+            @click="setLocale('en')"
+          >EN</button>
+        </div>
         <span
           v-if="frameBadge"
           class="xh-frame-badge"
-          :title="`当前 XPath 相对于 iframe: ${frameUrl}`"
+          :title="t('frameContext', { url: frameUrl ?? '' })"
         >
           iframe: {{ frameBadge }}
         </span>
-        <button class="xh-action" type="button" @click="emit('position')">换个位置</button>
+        <button class="xh-action" type="button" @click="emit('position')">{{ t('moveBar') }}</button>
       </div>
     </header>
-    <div class="xh-extract" role="group" aria-label="追加提取">
-      <span class="xh-extract__label">追加提取</span>
+    <div class="xh-extract" role="group" :aria-label="t('appendExtraction')">
+      <span class="xh-extract__label">{{ t('appendExtraction') }}</span>
       <button
         v-for="suffix in suggestions"
         :key="suffix"
         class="xh-extract__chip"
         type="button"
-        :title="`在当前 xpath 末尾追加 /${suffix}`"
+        :title="t('appendExtractionTitle', { suffix })"
         @click="emit('append-extraction', suffix)"
       >
         {{ suffix }}
@@ -95,7 +116,7 @@ const suggestions = computed(() => {
     <textarea
       v-else
       class="xh-textarea"
-      aria-label="XPath result"
+      :aria-label="t('xpathResult')"
       spellcheck="false"
       :value="modelValue"
       @input="handleInput"

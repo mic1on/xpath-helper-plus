@@ -11,6 +11,34 @@ test('manifest lets the action click toggle the in-page bar', async () => {
   expect(manifest.background.type).toBe('module')
 })
 
+test('manifest uses Chrome locales for extension metadata', async () => {
+  const manifestPath = path.resolve(__dirname, '../../src/manifest.json')
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+  const englishMessages = JSON.parse(fs.readFileSync(
+    path.resolve(__dirname, '../../src/_locales/en/messages.json'),
+    'utf8',
+  ))
+  const chineseMessages = JSON.parse(fs.readFileSync(
+    path.resolve(__dirname, '../../src/_locales/zh_CN/messages.json'),
+    'utf8',
+  ))
+
+  expect(manifest.default_locale).toBe('en')
+  expect(manifest.name).toBe('__MSG_extensionName__')
+
+  const manifestMessages = [
+    manifest.name,
+    manifest.description,
+    manifest.action.default_title,
+    manifest.commands['toggle-bar'].description,
+  ]
+  const messageKeys = manifestMessages.map((value: string) => value.slice(6, -2))
+  for (const key of messageKeys) {
+    expect(englishMessages[key]?.message).toBeTruthy()
+    expect(chineseMessages[key]?.message).toBeTruthy()
+  }
+})
+
 test('manifest registers the toggle-bar keyboard command', async () => {
   const manifestPath = path.resolve(__dirname, '../../src/manifest.json')
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))

@@ -1,0 +1,14 @@
+{
+  "extensionName": {
+    "message": "XPath Helper Plus"
+  },
+  "extensionDescription": {
+    "message": "Generate, evaluate, and inspect XPath expressions directly on any page."
+  },
+  "actionTitle": {
+    "message": "Toggle XPath Helper Plus"
+  },
+  "toggleBarCommand": {
+    "message": "Toggle the XPath Helper Plus floating bar"
+  }
+}

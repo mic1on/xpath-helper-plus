@@ -175,6 +175,42 @@
   box-shadow: none;
 }
 
+.xh-language {
+  display: inline-grid;
+  grid-template-columns: 25px 29px;
+  height: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(125, 249, 255, 0.28);
+}
+
+.xh-language__option {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  color: rgba(219, 255, 250, 0.58);
+  background: rgba(7, 22, 31, 0.62);
+  font-size: 10px;
+  line-height: 18px;
+  cursor: pointer;
+}
+
+.xh-language__option + .xh-language__option {
+  border-left: 1px solid rgba(125, 249, 255, 0.2);
+}
+
+.xh-language__option:hover,
+.xh-language__option:focus-visible {
+  outline: 0;
+  color: #ffffff;
+  background: rgba(14, 116, 144, 0.3);
+}
+
+.xh-language__option--active {
+  color: #061512;
+  background: #8dfcf0;
+  font-weight: 700;
+}
+
 /* Relative-XPath context pin toggle (issue #26). */
 .xh-context-btn {
   min-height: 20px;

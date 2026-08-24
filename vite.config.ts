@@ -62,6 +62,7 @@ export default defineConfig({
                     ),
               },
               { src: "src/assets", dest: "dist" },
+              { src: "src/_locales", dest: "dist" },
               { src: "src/custom.css", dest: "dist" },
             ],
             hook: "writeBundle",
