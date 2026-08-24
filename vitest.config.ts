@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config'
-import { resolve } from 'path'
+import { resolve } from 'node:path'
 
 // Dedicated Vitest config kept separate from vite.config.ts:
 // the app build uses Vite plugins (crx reload, unocss, etc.) that are not

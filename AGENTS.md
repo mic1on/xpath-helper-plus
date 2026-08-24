@@ -4,17 +4,21 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 - Add durable project-specific notes here as they are discovered through real work.
 
+## Vitesse WebExt build layout
+
+Chrome loads the `extension/` directory. `src/manifest.ts` generates `extension/manifest.json`; static icons/locales live directly under `extension/`; Vite emits the Side Panel, background service worker, and content script through `vite.config.mts`, `vite.config.background.mts`, and `vite.config.content.mts`. Use pnpm. `pnpm build` is the authoritative production build, and release packaging archives the complete `extension/` directory.
+
 ## Content-script bundle isolation
 
-The MV3 content script (`src/contentScript.ts`, registered classic-mode in `src/manifest.json`) cannot resolve ES-module `import`s at runtime, so its emitted bundle MUST be self-contained. `tests/e2e/manifest.spec.ts` asserts `contentScript.ts` does not import from `@/utils`. Shared code used by both the content script and the popup lives in `src/lib/messaging.ts` (types-only imports, zero runtime deps) so Rollup can inline it. The `build` script runs Vite twice (see `package.json` / `vite.config.ts` `BUILD_TARGET=content`): the default pass emits `index.html` + `background.js` + copies the manifest/assets; the second single-entry pass emits a self-contained `contentScript.js`. Verify after build: `dist/contentScript.js` has no `import ... from` and no `messaging.*.js` chunk exists.
+`src/contentScripts/index.ts` is registered as a classic MV3 content script, so `extension/dist/contentScripts/index.global.js` MUST be a self-contained IIFE with no ESM imports. Shared runtime code used by the Side Panel and content script belongs in dependency-light modules such as `src/lib/messaging.ts`; the content script must not import `src/utils.ts`. `scripts/e2e-ego.sh` asserts source and built-bundle isolation.
 
-## iframe / all_frames message routing (issue #25)
+## Side Panel and iframe routing (issue #25)
 
-`src/manifest.json` sets `all_frames: true` + `match_about_blank: true`, so `contentScript.ts` runs in every frame. Only the top frame (`window === window.top`) owns the floating bar UI; sub-frames run hover/highlight/evaluate against their own document. Because a mousemove never crosses a frame boundary, whichever frame the pointer is over generates the query and tags its notification with `window.location.href`. The popup reads `sender.frameId` off that message (see `useXPathWorkbench.ts` `activeFrameId`) and routes later evaluation/context commands back to the SAME frame via `sendMessageToContentScript(msg, cb, frameId)` in `src/utils.ts`. State updates (enabled/short/batch/containsId) carry explicit boolean values and broadcast to existing frames; newly inserted frames request the complete top-frame state through `background.ts`. Do not reintroduce per-frame toggle inversion. Cross-origin iframes are isolated, so XPath never spans frames.
+The native Side Panel owns all Vue UI; never reintroduce an iframe app into the inspected page. The all-frames content script owns DOM picking, highlighting, XPath evaluation, and context nodes. `useXPathWorkbench.ts` tracks both the active `tabId` and the content-script `frameId`; evaluation/context/focus commands must target that exact pair. Mode and enabled-state updates omit `frameId` to broadcast across existing frames. Newly inserted frames hydrate from frame 0 through `background/main.ts`. State messages carry explicit boolean values, never per-frame toggle inversion. Cross-origin frames remain isolated, so XPath never spans frame boundaries.
 
 ## Browser verification
 
-When browser-based inspection or testing is needed, use Ego Lite via the `ego-browser` skill.
+Browser E2E uses Ego Lite, not Playwright. Run `pnpm test:e2e`; `scripts/e2e-ego.sh` builds and serves `extension/`, verifies the Side Panel workflow and narrow layout, then executes the production content bundle in a real Ego Chromium page. Use the `ego-browser` skill for additional inspection.
 
 ## Maintaining this file
 

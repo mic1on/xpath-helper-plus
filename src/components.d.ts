@@ -11,8 +11,8 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    Home: typeof import('./src/components/home.vue')['default']
-    QueryEditorCard: typeof import('./src/components/panel/QueryEditorCard.vue')['default']
-    ResultPreviewCard: typeof import('./src/components/panel/ResultPreviewCard.vue')['default']
+    Home: typeof import('./components/home.vue')['default']
+    QueryEditorCard: typeof import('./components/panel/QueryEditorCard.vue')['default']
+    ResultPreviewCard: typeof import('./components/panel/ResultPreviewCard.vue')['default']
   }
 }

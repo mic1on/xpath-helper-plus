@@ -9,16 +9,26 @@
     "sourceMap": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "lib": ["esnext", "dom"],
     "skipLibCheck": true,
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
+      "@/*": ["./src/*"]
     },
-    "types": [
-      "@types/chrome",
-    ]
+    "types": ["@types/chrome", "vite/client"]
   },
-  "include": ["auto-imports.d.ts", "src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": [
+    "src/auto-imports.d.ts",
+    "src/components.d.ts",
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "scripts/**/*.ts",
+    "vite.config.*",
+    "unocss.config.ts",
+    "vitest.config.ts"
+  ]
 }

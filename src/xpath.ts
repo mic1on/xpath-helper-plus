@@ -253,7 +253,7 @@ const clearHighlights = () => {
 
 // Collect the union of attribute names present on the matched element nodes,
 // sorted and de-duplicated. This powers the result area's "append extraction"
-// helper (issue #24): the popup renders one button per real attribute so
+// helper (issue #24): the Side Panel renders one button per real attribute so
 // crawler developers can append `/@data-id`, `/@class`, etc. in a single click.
 // Only element nodes carry attributes; text/attribute result nodes contribute
 // none, and the extension's own transient highlight class is not filtered here
@@ -381,7 +381,7 @@ const evaluateQuery = (query: string, contextNode: Node = document): XPathEvalua
     try {
         xpathResult = document.evaluate(query, contextNode, null,
             XPathResult.ANY_TYPE, null);
-    } catch (e) {
+    } catch {
         str = '[INVALID XPATH EXPRESSION]';
         nodeCount = 0;
     }

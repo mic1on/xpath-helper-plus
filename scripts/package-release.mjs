@@ -1,20 +1,21 @@
-import { readFileSync, cpSync, mkdirSync, existsSync } from "fs"
-import { execSync } from "child_process"
-import { join, dirname } from "path"
-import { fileURLToPath } from "url"
+import { execFileSync } from 'node:child_process'
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const root = join(__dirname, "..")
+const currentDir = dirname(fileURLToPath(import.meta.url))
+const root = join(currentDir, '..')
+const extensionDir = join(root, 'extension')
+const { version, name } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
+const releaseDir = join(root, 'release')
+const archivePath = join(releaseDir, `${name}-v${version}.zip`)
 
-const { version, name } = JSON.parse(readFileSync(join(root, "package.json"), "utf-8"))
-const releaseDir = join(root, "release")
-const archiveName = `${name}-v${version}.zip`
+mkdirSync(releaseDir, { recursive: true })
+if (existsSync(archivePath)) rmSync(archivePath)
 
-if (!existsSync(releaseDir)) mkdirSync(releaseDir, { recursive: true })
+execFileSync('zip', ['-r', archivePath, '.'], {
+  cwd: extensionDir,
+  stdio: 'inherit',
+})
 
-execSync(
-  `cd dist && zip -r "${join(releaseDir, archiveName)}" .`,
-  { cwd: root, stdio: "inherit" },
-)
-
-console.log(`Created ${join(releaseDir, archiveName)}`)
+console.log(`Created ${archivePath}`)

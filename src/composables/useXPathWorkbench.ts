@@ -1,8 +1,17 @@
-import { sendMessageToContentScript } from '@/utils'
-import { useLocalStorage, useClipboard } from '@vueuse/core'
+import { computed, getCurrentScope, onScopeDispose, ref, watch } from 'vue'
+import { useClipboard, useLocalStorage } from '@vueuse/core'
 import xPathToCss from 'xpath-to-css'
-import type { PopupMessage, XPathEvaluationResponse, XPathResultItem } from '@/types/messages'
+import { sendMessageToContentScript } from '@/utils'
+import { isContentScriptState } from '@/lib/contentState'
+import type {
+  ContentScriptMessage,
+  ContentScriptTarget,
+  XPathEvaluationResponse,
+  XPathResultItem,
+} from '@/types/messages'
 import { useQueryHistory } from './useQueryHistory'
+
+export type PageConnectionStatus = 'connecting' | 'connected' | 'unavailable'
 
 function getChromeApi(): typeof chrome | undefined {
   return typeof chrome === 'undefined' ? undefined : chrome
@@ -11,100 +20,167 @@ function getChromeApi(): typeof chrome | undefined {
 export function useXPathWorkbench() {
   const { isSupported, copy } = useClipboard()
 
-  const xpathRule = ref<string>("string('xpath helper plus')")
+  const xpathRule = ref("string('xpath helper plus')")
   const xpathShort = useLocalStorage<boolean>('xpathShort', false)
   const xpathBatch = useLocalStorage<boolean>('xpathBatch', false)
   const xpathContainsId = useLocalStorage<boolean>('xpathContainsId', false)
-  const xpathResult = ref<string>('')
+  const xpathResult = ref('')
   const xpathResultCount = ref<number | null>(null)
   const xpathResultItems = ref<XPathResultItem[]>([])
-  // Attribute names present on the currently matched element nodes (issue #24),
-  // used to render the dynamic "append extraction" buttons in the result area.
   const xpathAttributes = ref<string[]>([])
-  // Whether a context node is currently pinned in the page (issue #26). Driven
-  // by the content script's contextActive notifications, not persisted, since
-  // the pin lives on a specific DOM element in the active tab.
-  const xpathContextActive = ref<boolean>(false)
+  const xpathContextActive = ref(false)
 
-  // The frame (iframe) whose element was last selected via Shift+hover (issue
-  // #25). With `all_frames: true` the generated query is relative to that
-  // frame's own document, so evaluation must target the SAME frame.
-  // `activeFrameId` is the Chrome frameId reported on the content script's
-  // notification (0 is the top document). `activeFrameUrl` is surfaced in the
-  // UI so users can tell which frame the current query resolves against.
-  const activeFrameId = ref<number>(0)
-  const activeFrameUrl = ref<string>('')
+  const activeTabId = ref<number | null>(null)
+  const activeFrameId = ref(0)
+  const activeFrameUrl = ref('')
+  const connectionStatus = ref<PageConnectionStatus>('connecting')
+  const isPageConnected = computed(() => connectionStatus.value === 'connected')
+  let sidePanelWindowId: number | null = null
 
   const { history, add: addToHistory, clear: clearHistory, togglePin } = useQueryHistory()
 
-  const executeQuery = () => {
-    const message: PopupMessage = { cmd: 'xpath', value: xpathRule.value }
-    // Route evaluation to the frame that produced the current query (issue
-    // #25); defaults to the top frame when nothing iframe-specific is selected.
-    sendMessageToContentScript(message, (response?: XPathEvaluationResponse) => {
-      xpathResult.value = response?.[0] ?? ''
-      xpathResultCount.value = response?.[1] ?? null
-      xpathAttributes.value = Array.isArray(response?.[2]) ? response[2] : []
-      xpathResultItems.value = Array.isArray(response?.[3]) ? response[3] : []
-    }, activeFrameId.value)
+  const getTarget = (frameId?: number): ContentScriptTarget | null => {
+    if (activeTabId.value === null) return null
+    return {
+      tabId: activeTabId.value,
+      frameId,
+    }
   }
 
-  // Record to history only on explicit user action (Enter key or Run), not on every keystroke
-  const runQuery = () => {
+  const clearEvaluation = (): void => {
+    xpathResult.value = ''
+    xpathResultCount.value = null
+    xpathAttributes.value = []
+    xpathResultItems.value = []
+  }
+
+  const resetFrameContext = (): void => {
+    activeFrameId.value = 0
+    activeFrameUrl.value = ''
+    xpathContextActive.value = false
+    clearEvaluation()
+  }
+
+  const executeQuery = (): void => {
+    const target = getTarget(activeFrameId.value)
+    if (!target) {
+      clearEvaluation()
+      return
+    }
+
+    sendMessageToContentScript(target, { cmd: 'xpath', value: xpathRule.value }, (response) => {
+      if (target.tabId !== activeTabId.value || target.frameId !== activeFrameId.value) return
+      if (!Array.isArray(response)) {
+        clearEvaluation()
+        if (connectionStatus.value !== 'connecting') connectionStatus.value = 'unavailable'
+        return
+      }
+
+      const result = response as XPathEvaluationResponse
+      connectionStatus.value = 'connected'
+      xpathResult.value = result[0] ?? ''
+      xpathResultCount.value = result[1] ?? null
+      xpathAttributes.value = Array.isArray(result[2]) ? result[2] : []
+      xpathResultItems.value = Array.isArray(result[3]) ? result[3] : []
+    })
+  }
+
+  const syncModes = (tabId: number): void => {
+    const target = { tabId }
+    sendMessageToContentScript(target, { cmd: 'short', value: xpathShort.value })
+    sendMessageToContentScript(target, { cmd: 'batch', value: xpathBatch.value })
+    sendMessageToContentScript(target, { cmd: 'containsId', value: xpathContainsId.value })
+    sendMessageToContentScript(target, { cmd: 'setEnabled', value: true })
+  }
+
+  const probeTab = (tabId: number): void => {
+    connectionStatus.value = 'connecting'
+    sendMessageToContentScript({ tabId, frameId: 0 }, { cmd: 'getState' }, (response) => {
+      if (tabId !== activeTabId.value) return
+      if (!isContentScriptState(response)) {
+        connectionStatus.value = 'unavailable'
+        clearEvaluation()
+        return
+      }
+
+      connectionStatus.value = 'connected'
+      syncModes(tabId)
+      executeQuery()
+    })
+  }
+
+  const setActiveTab = (tab?: { id?: number, windowId?: number }): void => {
+    const nextTabId = tab?.id ?? null
+    if (tab?.windowId !== undefined) sidePanelWindowId = tab.windowId
+
+    const previousTabId = activeTabId.value
+    if (previousTabId !== null && previousTabId !== nextTabId) {
+      sendMessageToContentScript({ tabId: previousTabId }, { cmd: 'setEnabled', value: false })
+    }
+
+    activeTabId.value = nextTabId
+    resetFrameContext()
+    if (nextTabId === null) {
+      connectionStatus.value = 'unavailable'
+      return
+    }
+    probeTab(nextTabId)
+  }
+
+  const refreshActiveTab = (): void => {
+    const chromeApi = getChromeApi()
+    if (!chromeApi?.tabs) {
+      setActiveTab()
+      return
+    }
+    chromeApi.tabs.query({ active: true, currentWindow: true }, tabs => setActiveTab(tabs[0]))
+  }
+
+  const runQuery = (): void => {
     executeQuery()
     addToHistory(xpathRule.value)
   }
 
-  watch(() => xpathRule.value, executeQuery, { immediate: true })
+  watch(xpathRule, executeQuery)
 
-  const handleShort = (v: boolean) => {
-    xpathShort.value = v
-    sendMessageToContentScript({ cmd: 'short', value: xpathShort.value })
+  const handleShort = (value: boolean): void => {
+    xpathShort.value = value
+    sendMessageToContentScript(getTarget(), { cmd: 'short', value })
   }
 
-  const handleBatch = (v: boolean) => {
-    xpathBatch.value = v
-    sendMessageToContentScript({ cmd: 'batch', value: xpathBatch.value })
+  const handleBatch = (value: boolean): void => {
+    xpathBatch.value = value
+    sendMessageToContentScript(getTarget(), { cmd: 'batch', value })
   }
 
-  const handleContainsId = (v: boolean) => {
-    xpathContainsId.value = v
-    sendMessageToContentScript({ cmd: 'containsId', value: xpathContainsId.value })
+  const handleContainsId = (value: boolean): void => {
+    xpathContainsId.value = value
+    sendMessageToContentScript(getTarget(), { cmd: 'containsId', value })
   }
 
-  const handleFocusResult = (index: number) => {
-    sendMessageToContentScript({
+  const handleFocusResult = (index: number): void => {
+    sendMessageToContentScript(getTarget(activeFrameId.value), {
       cmd: 'focusResult',
       value: xpathRule.value,
       index,
-    }, undefined, activeFrameId.value)
+    })
   }
 
-  const handlePosition = () => {
-    // The bar lives in the top frame only; always target it.
-    sendMessageToContentScript({ cmd: 'position' }, undefined, 0)
+  const handleSetContext = (): void => {
+    sendMessageToContentScript(getTarget(activeFrameId.value), { cmd: 'setContext' })
   }
 
-  // Pin / clear the relative-XPath context node in the page (issue #26). The
-  // active state is confirmed by the content script's contextActive reply.
-  // Routed to the active frame so the pin lands in the same document as the
-  // last-selected element (issue #25).
-  const handleSetContext = () => {
-    sendMessageToContentScript({ cmd: 'setContext' }, undefined, activeFrameId.value)
+  const handleClearContext = (): void => {
+    sendMessageToContentScript(getTarget(activeFrameId.value), { cmd: 'clearContext' })
   }
 
-  const handleClearContext = () => {
-    sendMessageToContentScript({ cmd: 'clearContext' }, undefined, activeFrameId.value)
-  }
-
-  const handleCopy = () => {
+  const handleCopy = (): void => {
     copy(xpathRule.value)
   }
 
-  const handleToCss = () => {
+  const handleToCss = (): void => {
     try {
-      const cssRule = xPathToCss(xpathRule.value)
-      copy(cssRule)
+      copy(xPathToCss(xpathRule.value))
     } catch (error) {
       xpathResult.value = error instanceof Error
         ? `[CSS CONVERSION FAILED] ${error.message}`
@@ -114,39 +190,76 @@ export function useXPathWorkbench() {
     }
   }
 
-  // Append an extraction step to the current XPath (issue #24). `suffix` is a
-  // trailing step such as `text()`, `@href`, or `@src`. Any existing trailing
-  // extraction step is replaced (rather than stacked) so repeated clicks toggle
-  // between extractions instead of producing invalid `/@href/text()` chains.
-  // The change re-runs the query via the xpathRule watcher.
-  const handleAppendExtraction = (suffix: string) => {
+  const handleAppendExtraction = (suffix: string): void => {
     const base = xpathRule.value.replace(/\/(?:text\(\)|@[\w:.-]+)\s*$/, '')
-    const normalized = base.replace(/\/+$/, '')
-    xpathRule.value = `${normalized}/${suffix}`
+    xpathRule.value = `${base.replace(/\/+$/, '')}/${suffix}`
     addToHistory(xpathRule.value)
   }
 
-  // Listen for query results from content script
-  getChromeApi()?.runtime?.onMessage?.addListener((request: any, sender: any) => {
-    if (request.query) {
-      xpathRule.value = request.query
-      // Record which frame produced this query so evaluation is routed back to
-      // the same frame (issue #25). `sender.frameId` is undefined only in
-      // non-extension contexts; default to the top frame (0) then.
-      activeFrameId.value = typeof sender?.frameId === 'number' ? sender.frameId : 0
+  const chromeApi = getChromeApi()
+  const handleRuntimeMessage = (request: ContentScriptMessage, sender: chrome.runtime.MessageSender): void => {
+    if (sender.tab?.id !== activeTabId.value) return
+
+    if (request.cmd === 'queryGenerated') {
+      activeFrameId.value = sender.frameId ?? 0
       activeFrameUrl.value = request.frameUrl ?? ''
-    }
-    // Context pin state confirmation (issue #26).
-    if (typeof request.contextActive === 'boolean') {
-      xpathContextActive.value = request.contextActive
+      xpathContextActive.value = false
+      if (request.query === xpathRule.value) {
+        executeQuery()
+      } else {
+        xpathRule.value = request.query
+      }
+    } else if (request.cmd === 'contextState') {
+      activeFrameId.value = sender.frameId ?? activeFrameId.value
+      xpathContextActive.value = request.active
       executeQuery()
     }
-  })
+  }
 
-  // Initialize short mode
-  handleShort(xpathShort.value)
-  handleBatch(xpathBatch.value)
-  handleContainsId(xpathContainsId.value)
+  const handleTabActivated = (activeInfo: chrome.tabs.OnActivatedInfo): void => {
+    if (sidePanelWindowId !== null && activeInfo.windowId !== sidePanelWindowId) return
+    setActiveTab({ id: activeInfo.tabId, windowId: activeInfo.windowId })
+  }
+
+  const handleTabUpdated = (
+    tabId: number,
+    changeInfo: chrome.tabs.OnUpdatedInfo,
+  ): void => {
+    if (tabId !== activeTabId.value || !changeInfo.status) return
+    resetFrameContext()
+    if (changeInfo.status === 'loading') {
+      connectionStatus.value = 'connecting'
+    } else {
+      probeTab(tabId)
+    }
+  }
+
+  const handleTabRemoved = (tabId: number): void => {
+    if (tabId === activeTabId.value) refreshActiveTab()
+  }
+
+  const disableActiveTab = (): void => {
+    const target = getTarget()
+    if (target) sendMessageToContentScript(target, { cmd: 'setEnabled', value: false })
+  }
+
+  chromeApi?.runtime?.onMessage?.addListener(handleRuntimeMessage)
+  chromeApi?.tabs?.onActivated?.addListener(handleTabActivated)
+  chromeApi?.tabs?.onUpdated?.addListener(handleTabUpdated)
+  chromeApi?.tabs?.onRemoved?.addListener(handleTabRemoved)
+  globalThis.addEventListener?.('pagehide', disableActiveTab)
+  refreshActiveTab()
+
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      disableActiveTab()
+      chromeApi?.runtime?.onMessage?.removeListener(handleRuntimeMessage)
+      chromeApi?.tabs?.onActivated?.removeListener(handleTabActivated)
+      chromeApi?.tabs?.onUpdated?.removeListener(handleTabUpdated)
+      chromeApi?.tabs?.onRemoved?.removeListener(handleTabRemoved)
+      globalThis.removeEventListener?.('pagehide', disableActiveTab)
+    })
+  }
 
   return {
     xpathRule,
@@ -158,19 +271,21 @@ export function useXPathWorkbench() {
     xpathResultItems,
     xpathAttributes,
     xpathContextActive,
+    activeTabId,
+    activeFrameId,
     activeFrameUrl,
+    connectionStatus,
+    isPageConnected,
     isSupported,
     handleShort,
     handleBatch,
     handleContainsId,
     handleFocusResult,
-    handlePosition,
     handleSetContext,
     handleClearContext,
     handleCopy,
     handleToCss,
     handleAppendExtraction,
-    // Query history
     queryHistory: history,
     addToQueryHistory: addToHistory,
     clearQueryHistory: clearHistory,

@@ -10,24 +10,25 @@ const props = defineProps<{
   resultCount: number | null
   items: XPathResultItem[]
   attributes: string[]
-  // URL of the frame the current query resolves against (issue #25). Empty or
-  // the top document => no iframe badge is shown.
+  // URL of the frame the current query resolves against (issue #25).
   frameUrl?: string
+  frameId: number
+  pageConnected: boolean
 }>()
 
-const emit = defineEmits(['update:modelValue', 'position', 'focus-result', 'append-extraction'])
+const emit = defineEmits(['update:modelValue', 'focus-result', 'append-extraction'])
 
 const handleInput = (event: Event) => {
   emit('update:modelValue', (event.target as HTMLTextAreaElement).value)
 }
 
 // Show a compact iframe badge only when the active query belongs to a child
-// frame (issue #25). We compare against the popup's own top-level location: if
-// the frame URL differs, the selection came from an iframe, so surface which
+// frame (issue #25). When a frame URL is present, surface a compact label so
+// the user can see which iframe owns the current query without consuming the
 // one. A short label (origin + trailing path segment) keeps it readable.
 const frameBadge = computed(() => {
   const url = props.frameUrl
-  if (!url) return ''
+  if (!url || props.frameId === 0) return ''
   try {
     const parsed = new URL(url)
     const lastSeg = parsed.pathname.split('/').filter(Boolean).pop() ?? ''
@@ -82,10 +83,9 @@ const suggestions = computed(() => {
         >
           iframe: {{ frameBadge }}
         </span>
-        <button class="xh-action" type="button" @click="emit('position')">{{ t('moveBar') }}</button>
       </div>
     </header>
-    <div class="xh-extract" role="group" :aria-label="t('appendExtraction')">
+    <div v-if="pageConnected" class="xh-extract" role="group" :aria-label="t('appendExtraction')">
       <span class="xh-extract__label">{{ t('appendExtraction') }}</span>
       <button
         v-for="suffix in suggestions"
@@ -103,7 +103,7 @@ const suggestions = computed(() => {
         <button
           class="xh-result-item"
           type="button"
-          :disabled="item.nodeType === 'other'"
+          :disabled="!pageConnected || item.nodeType === 'other'"
           :title="item.preview"
           @click="emit('focus-result', item.index)"
         >
@@ -118,6 +118,8 @@ const suggestions = computed(() => {
       class="xh-textarea"
       :aria-label="t('xpathResult')"
       spellcheck="false"
+      readonly
+      :placeholder="pageConnected ? t('noMatches') : t('pageUnavailableResult')"
       :value="modelValue"
       @input="handleInput"
     ></textarea>

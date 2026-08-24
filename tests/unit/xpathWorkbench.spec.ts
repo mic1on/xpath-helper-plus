@@ -1,10 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { nextTick, ref, watch } from 'vue'
+import { nextTick, ref } from 'vue'
 import { useXPathWorkbench } from '@/composables/useXPathWorkbench'
+
+const enabledState = {
+  enabled: true,
+  xpathShort: false,
+  xpathBatch: false,
+  xpathContainsId: false,
+}
 
 const mocks = vi.hoisted(() => ({
   sendMessageToContentScript: vi.fn(),
-  runtimeListener: undefined as ((request: unknown, sender: unknown) => void) | undefined,
+  runtimeListener: undefined as ((request: any, sender: any) => void) | undefined,
+  activatedListener: undefined as ((info: any) => void) | undefined,
+  updatedListener: undefined as ((tabId: number, info: any) => void) | undefined,
+  removedListener: undefined as ((tabId: number) => void) | undefined,
 }))
 
 vi.mock('@/utils', () => ({
@@ -20,36 +30,143 @@ vi.mock('xpath-to-css', () => ({
   default: (value: string) => value,
 }))
 
+function eventMock(setListener: (listener: any) => void) {
+  return {
+    addListener: vi.fn(setListener),
+    removeListener: vi.fn(),
+  }
+}
+
 beforeEach(() => {
-  vi.stubGlobal('ref', ref)
-  vi.stubGlobal('watch', watch)
   mocks.runtimeListener = undefined
+  mocks.activatedListener = undefined
+  mocks.updatedListener = undefined
+  mocks.removedListener = undefined
+
   vi.stubGlobal('chrome', {
     runtime: {
-      onMessage: {
-        addListener: vi.fn((listener) => {
-          mocks.runtimeListener = listener
-        }),
-      },
+      onMessage: eventMock(listener => mocks.runtimeListener = listener),
+    },
+    tabs: {
+      query: vi.fn((_query, callback) => callback([{ id: 41, windowId: 7 }])),
+      onActivated: eventMock(listener => mocks.activatedListener = listener),
+      onUpdated: eventMock(listener => mocks.updatedListener = listener),
+      onRemoved: eventMock(listener => mocks.removedListener = listener),
     },
   })
+
   mocks.sendMessageToContentScript.mockReset()
-  mocks.sendMessageToContentScript.mockImplementation((message, callback) => {
+  mocks.sendMessageToContentScript.mockImplementation((target, message, callback) => {
+    if (message.cmd === 'getState') callback?.(enabledState)
     if (message.cmd === 'xpath') callback?.(['result', 1, [], []])
   })
 })
 
-describe('useXPathWorkbench context evaluation (#47)', () => {
+describe('useXPathWorkbench side panel routing', () => {
+  it('targets the active tab and evaluates in its top frame', async () => {
+    const workbench = useXPathWorkbench()
+    await nextTick()
+
+    expect(workbench.activeTabId.value).toBe(41)
+    expect(workbench.connectionStatus.value).toBe('connected')
+    expect(mocks.sendMessageToContentScript).toHaveBeenCalledWith(
+      { tabId: 41, frameId: 0 },
+      expect.objectContaining({ cmd: 'xpath' }),
+      expect.any(Function),
+    )
+  })
+
+  it('routes iframe-generated XPath evaluation back to the same tab and frame', async () => {
+    const workbench = useXPathWorkbench()
+    await nextTick()
+    mocks.sendMessageToContentScript.mockClear()
+
+    mocks.runtimeListener?.(
+      { cmd: 'queryGenerated', query: '//button', frameUrl: 'https://frame.example/form' },
+      { tab: { id: 41 }, frameId: 9 },
+    )
+    await nextTick()
+
+    expect(workbench.xpathRule.value).toBe('//button')
+    expect(workbench.activeFrameId.value).toBe(9)
+    expect(workbench.activeFrameUrl.value).toBe('https://frame.example/form')
+    expect(mocks.sendMessageToContentScript).toHaveBeenCalledWith(
+      { tabId: 41, frameId: 9 },
+      { cmd: 'xpath', value: '//button' },
+      expect.any(Function),
+    )
+  })
+
+  it('re-evaluates when a different frame generates the same XPath', async () => {
+    const workbench = useXPathWorkbench()
+    await nextTick()
+
+    mocks.runtimeListener?.(
+      { cmd: 'queryGenerated', query: '//button', frameUrl: 'https://first.example' },
+      { tab: { id: 41 }, frameId: 3 },
+    )
+    await nextTick()
+    mocks.sendMessageToContentScript.mockClear()
+
+    mocks.runtimeListener?.(
+      { cmd: 'queryGenerated', query: '//button', frameUrl: 'https://second.example' },
+      { tab: { id: 41 }, frameId: 9 },
+    )
+
+    expect(workbench.activeFrameId.value).toBe(9)
+    expect(mocks.sendMessageToContentScript).toHaveBeenCalledWith(
+      { tabId: 41, frameId: 9 },
+      { cmd: 'xpath', value: '//button' },
+      expect.any(Function),
+    )
+  })
+
+  it('ignores messages from a different tab', async () => {
+    const workbench = useXPathWorkbench()
+    await nextTick()
+    const originalQuery = workbench.xpathRule.value
+
+    mocks.runtimeListener?.(
+      { cmd: 'queryGenerated', query: '//wrong-tab', frameUrl: 'https://example.com' },
+      { tab: { id: 99 }, frameId: 2 },
+    )
+
+    expect(workbench.xpathRule.value).toBe(originalQuery)
+    expect(workbench.activeFrameId.value).toBe(0)
+  })
+
   it('re-evaluates the current XPath when context state changes', async () => {
     useXPathWorkbench()
     await nextTick()
     const evaluationsBefore = mocks.sendMessageToContentScript.mock.calls
-      .filter(([message]) => message.cmd === 'xpath').length
+      .filter(([, message]) => message.cmd === 'xpath').length
 
-    mocks.runtimeListener?.({ contextActive: true }, {})
+    mocks.runtimeListener?.(
+      { cmd: 'contextState', active: true },
+      { tab: { id: 41 }, frameId: 0 },
+    )
 
     const evaluationsAfter = mocks.sendMessageToContentScript.mock.calls
-      .filter(([message]) => message.cmd === 'xpath').length
+      .filter(([, message]) => message.cmd === 'xpath').length
     expect(evaluationsAfter).toBe(evaluationsBefore + 1)
+  })
+
+  it('disables the previous picker when the active tab changes', async () => {
+    const workbench = useXPathWorkbench()
+    await nextTick()
+    mocks.sendMessageToContentScript.mockClear()
+
+    mocks.activatedListener?.({ tabId: 52, windowId: 7 })
+
+    expect(workbench.activeTabId.value).toBe(52)
+    expect(mocks.sendMessageToContentScript).toHaveBeenCalledWith(
+      { tabId: 41 },
+      { cmd: 'setEnabled', value: false },
+    )
+    expect(mocks.sendMessageToContentScript).toHaveBeenCalledWith(
+      { tabId: 52, frameId: 0 },
+      { cmd: 'getState' },
+      expect.any(Function),
+    )
   })
 })

@@ -6,9 +6,9 @@
     "message": "Generate, evaluate, and inspect XPath expressions directly on any page."
   },
   "actionTitle": {
-    "message": "Toggle XPath Helper Plus"
+    "message": "Open XPath Helper Plus"
   },
-  "toggleBarCommand": {
-    "message": "Toggle the XPath Helper Plus floating bar"
+  "openSidePanelCommand": {
+    "message": "Open the XPath Helper Plus side panel"
   }
 }
