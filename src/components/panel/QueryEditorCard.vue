@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useI18n } from '@/i18n'
 
 interface HistoryItem {
   query: string
@@ -16,6 +17,8 @@ defineProps<{
   queryHistory: HistoryItem[]
   contextActive: boolean
 }>()
+
+const { locale, t } = useI18n()
 
 const emit = defineEmits([
   'update:modelValue',
@@ -97,16 +100,16 @@ const formatTime = (timestamp: number) => {
   const diffHours = Math.floor(diffMs / 3600000)
   const diffDays = Math.floor(diffMs / 86400000)
 
-  if (diffMins < 1) return '刚刚'
-  if (diffMins < 60) return `${diffMins}分钟前`
-  if (diffHours < 24) return `${diffHours}小时前`
-  if (diffDays < 7) return `${diffDays}天前`
-  return date.toLocaleDateString()
+  if (diffMins < 1) return t('justNow')
+  if (diffMins < 60) return t('minutesAgo', { count: diffMins })
+  if (diffHours < 24) return t('hoursAgo', { count: diffHours })
+  if (diffDays < 7) return t('daysAgo', { count: diffDays })
+  return date.toLocaleDateString(locale.value === 'zh' ? 'zh-CN' : 'en-US')
 }
 </script>
 
 <template>
-  <section class="xh-panel xh-panel--editor" aria-label="XPath editor">
+  <section class="xh-panel xh-panel--editor" :aria-label="t('xpathEditor')">
     <header class="xh-panel__header">
       <div class="xh-panel__title-group">
         <span class="xh-panel__eyebrow">XPATH</span>
@@ -117,7 +120,7 @@ const formatTime = (timestamp: number) => {
             @change="handleShortChange"
           />
           <span class="xh-toggle__track" aria-hidden="true"></span>
-          <span>精简xpath</span>
+          <span>{{ t('shortXPath') }}</span>
         </label>
         <label class="xh-toggle xh-toggle--sub" :class="{ 'xh-toggle--disabled': !xpathShort }">
           <input
@@ -127,7 +130,7 @@ const formatTime = (timestamp: number) => {
             @change="handleContainsIdChange"
           />
           <span class="xh-toggle__track" aria-hidden="true"></span>
-          <span>contains id</span>
+          <span>{{ t('containsId') }}</span>
         </label>
         <label class="xh-toggle">
           <input
@@ -136,29 +139,27 @@ const formatTime = (timestamp: number) => {
             @change="handleBatchChange"
           />
           <span class="xh-toggle__track" aria-hidden="true"></span>
-          <span>列表模式</span>
+          <span>{{ t('listMode') }}</span>
         </label>
         <button
           class="xh-context-btn"
           :class="{ 'xh-context-btn--active': contextActive }"
           type="button"
-          :title="contextActive
-            ? '已固定上下文节点，Shift 悬停元素生成相对表达式；点击清除'
-            : 'Shift 悬停某容器元素后点击此处设为上下文，生成相对 XPath'"
+          :title="contextActive ? t('clearContextTitle') : t('setContextTitle')"
           @click="contextActive ? emit('clear-context') : emit('set-context')"
         >
-          {{ contextActive ? '清除上下文' : '设为上下文' }}
+          {{ contextActive ? t('clearContext') : t('setContext') }}
         </button>
       </div>
       <div v-if="isSupported" class="xh-panel__actions">
-        <button class="xh-action" type="button" @click="emit('copy')">复制</button>
+        <button class="xh-action" type="button" @click="emit('copy')">{{ t('copy') }}</button>
         <button
           class="xh-action xh-action--accent"
           type="button"
-          title="将xpath语句转为css选择器"
+          :title="t('copyCssTitle')"
           @click="emit('toCss')"
         >
-          复制css
+          {{ t('copyCss') }}
         </button>
         <div class="xh-history-trigger">
           <button
@@ -167,7 +168,7 @@ const formatTime = (timestamp: number) => {
             @click="showHistory = !showHistory"
             :aria-expanded="showHistory"
             aria-haspopup="listbox"
-            title="查询历史 (最多 20 条)"
+            :title="t('historyTitle')"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="10" />
@@ -178,20 +179,20 @@ const formatTime = (timestamp: number) => {
           <transition name="xh-history-fade">
             <div v-show="showHistory" ref="dropdownRef" class="xh-history-dropdown">
               <div class="xh-history-dropdown__header">
-                <span>查询历史</span>
+                <span>{{ t('queryHistory') }}</span>
                 <button
                   v-if="queryHistory.length"
                   class="xh-history-clear"
                   type="button"
                   @click="handleClearHistory"
-                  title="清空历史"
+                  :title="t('clearHistoryTitle')"
                 >
-                  清空
+                  {{ t('clear') }}
                 </button>
               </div>
-              <ul class="xh-history-list" role="listbox" aria-label="历史查询列表">
+              <ul class="xh-history-list" role="listbox" :aria-label="t('historyList')">
                 <li v-for="item in queryHistory" :key="item.query" class="xh-history-item" :class="{ 'xh-history-item--pinned': item.pinned }" role="option" @click="selectHistoryItem(item.query)">
-                  <span class="xh-history-item__pin" @click="handleTogglePin(item.query, $event)" :title="item.pinned ? '取消置顶' : '置顶'">
+                  <span class="xh-history-item__pin" @click="handleTogglePin(item.query, $event)" :title="item.pinned ? t('unpin') : t('pin')">
                     <svg v-if="item.pinned" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                       <path d="M12 17l-5-3v-7l5-3 5 3v7-5 3z" />
                     </svg>
@@ -205,7 +206,7 @@ const formatTime = (timestamp: number) => {
                   <span class="xh-history-item__query" :title="item.query">{{ item.query }}</span>
                   <span class="xh-history-item__time">{{ formatTime(item.timestamp) }}</span>
                 </li>
-                <li v-if="!queryHistory.length" class="xh-history-empty">暂无历史记录</li>
+                <li v-if="!queryHistory.length" class="xh-history-empty">{{ t('noHistory') }}</li>
               </ul>
             </div>
           </transition>
@@ -214,7 +215,7 @@ const formatTime = (timestamp: number) => {
     </header>
     <textarea
       class="xh-textarea"
-      aria-label="XPath rule"
+      :aria-label="t('xpathRule')"
       spellcheck="false"
       :value="modelValue"
       @input="handleInput"

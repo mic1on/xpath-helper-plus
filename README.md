@@ -4,6 +4,8 @@
 
 A Chrome MV3 developer extension (Vue 3 + Vite) that generates a minimal, unique XPath for a selected element and lets you evaluate XPath queries against the page.
 
+[English](./README.en.md) | 简体中文
+
 ---
 
 ## 功能清单
@@ -21,6 +23,7 @@ A Chrome MV3 developer extension (Vue 3 + Vite) that generates a minimal, unique
 | **配置持久化** | 三个开关状态通过 `localStorage` 持久化，重启浏览器后保持。 |
 | **iframe 元素定位** | 内容脚本以 `all_frames` 注入所有子框架（含跨源 iframe / `about:blank`），可在 iframe 内 `Shift` 悬停拾取元素；生成的 XPath 相对该 iframe 文档，结果面板显示所属 iframe 徽标，求值自动路由回同一框架（#25）。跨源 iframe 的父子文档互相隔离，因此 XPath 不跨越框架边界。 |
 | **键盘快捷键** | `Alt+Shift+X` 切换浮动栏显示/隐藏（可在 `chrome://extensions/shortcuts` 自定义）。 |
+| **中英文界面** | 首次按 Chrome UI 语言自动选择中文或英文，并可通过结果面板的 `中 / EN` 控件切换；选择会持久化。 |
 
 ---
 
