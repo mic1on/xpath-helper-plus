@@ -43,6 +43,7 @@ function evaluateQueryCount(query: string): [XPathResult, number] {
   return [result, result.snapshotLength]
 }
 
+
 describe('escapeXPathString', () => {
   it('wraps a string with no quotes in single quotes', () => {
     expect(escapeXPathString('abc')).toBe("'abc'")
@@ -250,6 +251,24 @@ describe('makeQueryForElement', () => {
     expect(makeQueryForElement(document.querySelector('span')!)).toBe(
       '/html/body/div/span'
     )
+  })
+
+  it('generates an evaluable namespace-aware XPath for an SVG element with classes (#47)', () => {
+    setDom('<div><svg class="icon active"><path d="M0 0"></path></svg></div>')
+    const target = document.querySelector('svg')!
+    const query = makeQueryForElement(target)
+
+    expect(query).toContain("*[local-name()='svg' and namespace-uri()='http://www.w3.org/2000/svg']")
+    expect(query).toContain("' icon '")
+    expect(query).not.toContain("' active '")
+  })
+
+  it('generates an evaluable XPath for an SVG child without a class attribute (#47)', () => {
+    setDom('<div><svg class="icon"><path d="M0 0"></path><path d="M1 1"></path></svg></div>')
+    const target = document.querySelectorAll('path')[1]
+    const query = makeQueryForElement(target)
+
+    expect(query).toContain("*[local-name()='path' and namespace-uri()='http://www.w3.org/2000/svg'][2]")
   })
 
   it('appends /@src when the target element is an img', () => {
@@ -460,6 +479,16 @@ describe('makeQueryForElement relative context (#26)', () => {
     expect(resolveOne(query, rows[1])).toBe(rows[1].querySelector('a.link'))
   })
 
+  it('falls back to an absolute path when the target is outside the pinned context', () => {
+    setDom('<section id="context"><span>inside</span></section><aside><span id="target">outside</span></aside>')
+    const context = document.getElementById('context')!
+    const target = document.getElementById('target')!
+    const query = makeQueryForElement(target, true, false, false, context)
+
+    expect(query.startsWith('.')).toBe(false)
+    expect(resolveOne(query, document)).toBe(target)
+  })
+
   it('omits positional index under batch mode in relative context', () => {
     setDom(
       '<div class="ctx"><ul><li class="item">a</li><li class="item">b</li></ul></div>'
@@ -493,6 +522,34 @@ describe('structured XPath results', () => {
     setDom('<div></div>')
     const [, , , items] = evaluateQuery('//div')
     expect(items[0]?.preview).toBe('[EMPTY]')
+  })
+
+  it('evaluates a relative query against the pinned context only (#47)', () => {
+    setDom(
+      '<section class="row"><span class="price">first</span></section>' +
+      '<section class="row"><span class="price">second</span></section>'
+    )
+    const context = document.querySelectorAll('section')[1]
+
+    const [value, count, , items] = evaluateQuery('.//span', context)
+
+    expect(value).toBe('second')
+    expect(count).toBe(1)
+    expect(items).toHaveLength(1)
+  })
+
+  it('focuses a relative result inside the pinned context (#47)', () => {
+    setDom(
+      '<section><span>first</span></section>' +
+      '<section><span>second</span></section>'
+    )
+    const context = document.querySelectorAll('section')[1]
+    const target = context.querySelector('span')!
+    target.scrollIntoView = vi.fn()
+
+    expect(focusQueryResult('.//span', 0, context)).toBe(true)
+    expect(target.classList.contains('xh-highlight')).toBe(true)
+    expect(document.querySelector('section span')?.classList.contains('xh-highlight')).toBe(false)
   })
 
   it('focuses and scrolls the selected element into view', () => {

@@ -118,7 +118,7 @@ const isVolatileClass = (token: string) => {
     return false;
 };
 
-const makeClassComponent = (tagName: string, className: string) => {
+const makeClassComponent = (nodeTest: string, className: string) => {
     // Build a robust, order- and whitespace-independent class predicate: one
     // whitespace-normalized contains() per class token, combined with `and`.
     // This tolerates framework class reordering and dynamically added/removed
@@ -126,7 +126,7 @@ const makeClassComponent = (tagName: string, className: string) => {
     const tokens = className.split(/\s+/).filter(token => token.length > 0);
     if (tokens.length === 0) {
         // className was only whitespace: fall back to tag-only component.
-        return tagName;
+        return nodeTest;
     }
     // Prefer structural (non-volatile) tokens so that toggling a runtime state
     // class (active/hover/open/...) does not break the locator (#12, scenario
@@ -138,7 +138,7 @@ const makeClassComponent = (tagName: string, className: string) => {
         .map(token => "contains(concat(' ', normalize-space(@class), ' '), "
             + escapeXPathString(' ' + token + ' ') + ')')
         .join(' and ');
-    return tagName + '[' + predicate + ']';
+    return nodeTest + '[' + predicate + ']';
 };
 
 // Whether an element satisfies the full component predicate, evaluated by the
@@ -161,8 +161,15 @@ const matchesComponent = (el: Element, component: string) => {
     }
 };
 
+const getNodeTest = (el: Element): string => {
+    const tagName = el.localName.toLowerCase();
+    return el.namespaceURI === 'http://www.w3.org/2000/svg'
+        ? `*[local-name()=${escapeXPathString(tagName)} and namespace-uri()=${escapeXPathString(el.namespaceURI)}]`
+        : tagName;
+};
+
 const makeQueryForElement = (
-    el: any,
+    el: Element | null,
     toShort: boolean = false,
     batch: boolean = false,
     containsId: boolean = false,
@@ -174,8 +181,11 @@ const makeQueryForElement = (
     // node rather than from the document root.
     contextEl: Element | null = null
 ) => {
+    if (contextEl && el && el !== contextEl && !contextEl.contains(el)) {
+        contextEl = null;
+    }
     let query = '';
-    for (; el && el.nodeType === Node.ELEMENT_NODE; el = el.parentNode) {
+    for (; el; el = el.parentNode instanceof Element ? el.parentNode : null) {
         // Reached the pinned context node: everything accumulated so far is the
         // path relative to it. Prefix `.` so the query starts at the context
         // (issue #26) and stop climbing toward the document root.
@@ -183,18 +193,22 @@ const makeQueryForElement = (
             return '.' + query;
         }
         el.classList.remove('xh-highlight')
-        let component = el.tagName.toLowerCase();
+        const nodeTest = getNodeTest(el);
+        let component = nodeTest;
         if (el.id) {
-            component = makeIdComponent(component, el.id, toShort && containsId);
-        } else if (el.className) {
-            component = makeClassComponent(component, el.className);
+            component = makeIdComponent(nodeTest, el.id, toShort && containsId);
+        } else {
+            const className = el.getAttribute('class') ?? '';
+            if (className) {
+                component = makeClassComponent(nodeTest, className);
+            }
         }
         // Count the position index over EXACTLY the set the emitted predicate
         // selects, so `tag[predicate][index]` resolves to this element under
         // real XPath semantics (a predicate is applied BEFORE the position, so
         // a pure-tag index would be wrong once a class/id predicate is present,
         // #13). matchesComponent re-uses the real XPath engine for parity.
-        const predicated = component !== el.tagName.toLowerCase();
+        const predicated = component !== nodeTest;
         const index = getElementIndex(
             el,
             predicated ? (sib: Element) => matchesComponent(sib, component) : undefined
@@ -328,12 +342,12 @@ const evalNodeValue = (xpathResult: XPathResult): XPathEvaluationResponse => {
     return [str, nodeCount, collectAttributeNames(toHighlight), items];
 }
 
-const focusQueryResult = (query: string, index: number): boolean => {
+const focusQueryResult = (query: string, index: number, contextNode: Node = document): boolean => {
     let xpathResult: XPathResult;
     try {
         xpathResult = document.evaluate(
             query,
-            document,
+            contextNode,
             null,
             XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
             null
@@ -359,13 +373,13 @@ const focusQueryResult = (query: string, index: number): boolean => {
     return true;
 };
 
-const evaluateQuery = (query: string): XPathEvaluationResponse => {
+const evaluateQuery = (query: string, contextNode: Node = document): XPathEvaluationResponse => {
     let xpathResult = null;
     let str = '';
     let nodeCount = 0;
 
     try {
-        xpathResult = document.evaluate(query, document, null,
+        xpathResult = document.evaluate(query, contextNode, null,
             XPathResult.ANY_TYPE, null);
     } catch (e) {
         str = '[INVALID XPATH EXPRESSION]';

@@ -29,9 +29,6 @@ class Bar {
     moveBar() {
         this.iframe.classList.toggle('bottom');
     }
-    isShow() {
-        return !this.iframe.classList.contains('hidden')
-    }
     showBar() {
         this.createIframe()
         this.iframe.classList.remove('hidden')
@@ -40,13 +37,8 @@ class Bar {
         this.iframe.classList.add('hidden')
     }
 
-    toggleBar(): boolean {
-        if (this.isShow()) {
-            this.hideBar()
-        } else {
-            this.showBar()
-        }
-        return this.isShow()
+    setVisible(visible: boolean): void {
+        visible ? this.showBar() : this.hideBar()
     }
 }
 

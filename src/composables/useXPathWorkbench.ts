@@ -139,6 +139,7 @@ export function useXPathWorkbench() {
     // Context pin state confirmation (issue #26).
     if (typeof request.contextActive === 'boolean') {
       xpathContextActive.value = request.contextActive
+      executeQuery()
     }
   })
 

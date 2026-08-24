@@ -10,7 +10,11 @@ The MV3 content script (`src/contentScript.ts`, registered classic-mode in `src/
 
 ## iframe / all_frames message routing (issue #25)
 
-`src/manifest.json` sets `all_frames: true` + `match_about_blank: true`, so `contentScript.ts` runs in every frame. Only the top frame (`window === window.top`) owns the floating bar UI; sub-frames run hover/highlight/evaluate against their own document. Because a mousemove never crosses a frame boundary, whichever frame the pointer is over generates the query and tags its notification with `window.location.href`. The popup reads `sender.frameId` off that message (see `useXPathWorkbench.ts` `activeFrameId`) and routes later evaluation/context commands back to the SAME frame via `sendMessageToContentScript(msg, cb, frameId)` in `src/utils.ts`. Mode toggles (short/batch/containsId) omit `frameId` to broadcast to all frames. `toggleBar` is broadcast too: the top frame flips the bar, sub-frames mirror only their hover-enabled state. Cross-origin iframes are isolated, so XPath never spans frames.
+`src/manifest.json` sets `all_frames: true` + `match_about_blank: true`, so `contentScript.ts` runs in every frame. Only the top frame (`window === window.top`) owns the floating bar UI; sub-frames run hover/highlight/evaluate against their own document. Because a mousemove never crosses a frame boundary, whichever frame the pointer is over generates the query and tags its notification with `window.location.href`. The popup reads `sender.frameId` off that message (see `useXPathWorkbench.ts` `activeFrameId`) and routes later evaluation/context commands back to the SAME frame via `sendMessageToContentScript(msg, cb, frameId)` in `src/utils.ts`. State updates (enabled/short/batch/containsId) carry explicit boolean values and broadcast to existing frames; newly inserted frames request the complete top-frame state through `background.ts`. Do not reintroduce per-frame toggle inversion. Cross-origin iframes are isolated, so XPath never spans frames.
+
+## Browser verification
+
+When browser-based inspection or testing is needed, use Ego Lite via the `ego-browser` skill.
 
 ## Maintaining this file
 
