@@ -34,8 +34,7 @@
         "resources": ["index.html"]
     }],
     "permissions": [
-      "activeTab",
-      "scripting"
+      "activeTab"
     ],
     "commands": {
       "toggle-bar": {
