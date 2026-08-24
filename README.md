@@ -12,7 +12,7 @@ A Chrome MV3 developer extension (Vue 3 + Vite) that generates a minimal, unique
 |------|------|
 | **元素拾取** | 按住 `Shift` + 鼠标悬停/点击页面任意元素，自动生成该元素的唯一 XPath 并回填到编辑器。 |
 | **自动精简为最短唯一 XPath** | 从目标元素向上遍历 DOM，寻找最短且在当前页面唯一的 XPath；若当前路径不唯一则继续向上。 |
-| **健壮的 class 匹配** | 采用按 token 的 `contains(concat(' ', normalize-space(@class), ' '), ' <token> ')` 断言，与 class 顺序、空白无关（兼容动态增删/重排 class 的框架）。 |
+| **健壮的 class 匹配** | 采用按 token 的 `contains(concat(' ', normalize-space(@class), ' '), ' <token> ')` 断言，与 class 顺序、空白无关；并自动剔除 `active`/`hover`/`is-open` 等运行时状态 class，只保留结构性 class，避免框架动态增删状态类导致定位失效（#12）。 |
 | **位置索引正确性** | `tag[predicate][n]` 的位置索引 `n` 统计的是**满足 predicate 的同标签兄弟节点**，而非所有同标签兄弟节点（修复 #13）。 |
 | **查询编辑器** | 左侧面板：可手写/编辑 XPath；三个开关——**精简xpath**（自动精简）、**contains id**（允许在谓词中使用 id）、**列表模式**（批量/不加位置索引）。 |
 | **结果预览** | 右侧面板：实时显示当前 XPath 匹配的节点数与序列化结果；提供“换个位置”切换面板上下位置。 |

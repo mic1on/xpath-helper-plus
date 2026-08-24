@@ -80,6 +80,42 @@ const makeIdComponent = (tagName: string, id: string, useContainsId: boolean) =>
     return uniqueContains ?? tagName + '[@id=' + escapeXPathString(id) + ']';
 };
 
+// Volatile / stateful class tokens that frameworks add and remove at runtime
+// (interaction, visibility, and validation state). Matching on these makes a
+// generated XPath brittle: toggling `active`/`hover`/`open` off would drop the
+// locator even though it is structurally the same element (#12, scenario 2).
+// We therefore exclude them from the emitted predicate when structural tokens
+// remain. Prefix-based state conventions (is-*, has-*, *-active, etc.) are
+// handled separately in isVolatileClass.
+const VOLATILE_CLASS_TOKENS = new Set([
+    'active', 'hover', 'focus', 'focused', 'focus-visible', 'focus-within',
+    'selected', 'checked', 'current', 'open', 'opened', 'close', 'closed',
+    'show', 'shown', 'showing', 'hide', 'hidden', 'collapsed', 'expanded',
+    'visible', 'invisible', 'disabled', 'enabled', 'loading', 'loaded',
+    'pending', 'busy', 'dragging', 'dragover', 'draggable', 'pressed',
+    'highlight', 'highlighted', 'error', 'success', 'warning', 'invalid',
+    'valid', 'dirty', 'pristine', 'touched', 'untouched', 'readonly',
+    'sticky', 'fixed', 'scrolled', 'in', 'out', 'fade', 'fade-in', 'fade-out',
+    'entering', 'entered', 'leaving', 'left', 'transitioning', 'animating',
+]);
+
+const isVolatileClass = (token: string) => {
+    const lower = token.toLowerCase();
+    if (VOLATILE_CLASS_TOKENS.has(lower)) {
+        return true;
+    }
+    // Common BEM/utility state conventions: is-open, has-error, js-active,
+    // ng-*/v-* framework state modifiers, and *-active / *-enter / *-leave
+    // transition suffixes (Vue/React transition groups).
+    if (/^(is|has|js|ng|v)-/.test(lower)) {
+        return true;
+    }
+    if (/-(active|hover|focus|selected|open|show|hidden|disabled|loading|enter|leave|entering|leaving|error|success)$/.test(lower)) {
+        return true;
+    }
+    return false;
+};
+
 const makeClassComponent = (tagName: string, className: string) => {
     // Build a robust, order- and whitespace-independent class predicate: one
     // whitespace-normalized contains() per class token, combined with `and`.
@@ -90,7 +126,13 @@ const makeClassComponent = (tagName: string, className: string) => {
         // className was only whitespace: fall back to tag-only component.
         return tagName;
     }
-    const predicate = tokens
+    // Prefer structural (non-volatile) tokens so that toggling a runtime state
+    // class (active/hover/open/...) does not break the locator (#12, scenario
+    // 2). Only when every token looks volatile do we keep them all, since a
+    // predicate is still better than a bare tag for narrowing.
+    const structural = tokens.filter(token => !isVolatileClass(token));
+    const chosen = structural.length > 0 ? structural : tokens;
+    const predicate = chosen
         .map(token => "contains(concat(' ', normalize-space(@class), ' '), "
             + escapeXPathString(' ' + token + ' ') + ')')
         .join(' and ');
