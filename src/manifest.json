@@ -25,7 +25,8 @@
             "custom.css"
           ],
           "run_at": "document_start",
-          "all_frames": false
+          "all_frames": true,
+          "match_about_blank": true
         }
     ],
     "web_accessible_resources": [{

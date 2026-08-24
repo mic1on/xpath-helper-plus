@@ -219,6 +219,22 @@
   box-shadow: 0 0 14px rgba(45, 212, 191, 0.16);
 }
 
+/* iframe origin badge for cross-frame selections (issue #25). */
+.xh-frame-badge {
+  max-width: 180px;
+  padding: 1px 7px;
+  border: 1px solid rgba(96, 165, 250, 0.42);
+  border-radius: 4px;
+  color: #bfdbfe;
+  background: rgba(37, 99, 235, 0.18);
+  font-family: "SF Mono", "Cascadia Code", "Menlo", monospace;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .xh-history-trigger {
   position: relative;
 }
