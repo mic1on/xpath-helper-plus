@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { XPathResultItem } from '@/types/messages'
 
 const props = defineProps<{
   modelValue: string
   resultCount: number | null
+  items: XPathResultItem[]
   attributes: string[]
   // URL of the frame the current query resolves against (issue #25). Empty or
   // the top document => no iframe badge is shown.
   frameUrl?: string
 }>()
 
-const emit = defineEmits(['update:modelValue', 'position', 'append-extraction'])
+const emit = defineEmits(['update:modelValue', 'position', 'focus-result', 'append-extraction'])
 
 const handleInput = (event: Event) => {
   emit('update:modelValue', (event.target as HTMLTextAreaElement).value)
@@ -75,7 +77,23 @@ const suggestions = computed(() => {
         {{ suffix }}
       </button>
     </div>
+    <ol v-if="items.length" class="xh-result-list" aria-label="XPath results">
+      <li v-for="item in items" :key="item.index">
+        <button
+          class="xh-result-item"
+          type="button"
+          :disabled="item.nodeType === 'other'"
+          :title="item.preview"
+          @click="emit('focus-result', item.index)"
+        >
+          <span class="xh-result-item__index">{{ item.index + 1 }}</span>
+          <span v-if="item.tagName" class="xh-result-item__tag">&lt;{{ item.tagName }}&gt;</span>
+          <span class="xh-result-item__preview">{{ item.preview }}</span>
+        </button>
+      </li>
+    </ol>
     <textarea
+      v-else
       class="xh-textarea"
       aria-label="XPath result"
       spellcheck="false"

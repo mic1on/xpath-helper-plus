@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   escapeXPathString,
   getIdContainsCandidates,
   getElementIndex,
   makeQueryForElement,
   collectAttributeNames,
+  evaluateQuery,
+  focusQueryResult,
 } from '@/xpath'
 
 // Unit / characterization tests for the pure logic in src/xpath.ts.
@@ -468,6 +470,60 @@ describe('makeQueryForElement relative context (#26)', () => {
     expect(query).toBe(
       "./ul/li[contains(concat(' ', normalize-space(@class), ' '), ' item ')]"
     )
+  })
+})
+
+describe('structured XPath results', () => {
+  beforeEach(() => setDom(''))
+
+  it('returns one normalized preview item per node match (issue #22)', () => {
+    setDom('<ul><li> First  item </li><li><strong>Second</strong> item</li></ul>')
+
+    const [value, count, , items] = evaluateQuery('//li')
+
+    expect(value).toBe('First item\nSecond item')
+    expect(count).toBe(2)
+    expect(items).toEqual([
+      { index: 0, preview: 'First item', nodeType: 'element', tagName: 'li' },
+      { index: 1, preview: 'Second item', nodeType: 'element', tagName: 'li' },
+    ])
+  })
+
+  it('keeps empty matches visible in the result list', () => {
+    setDom('<div></div>')
+    const [, , , items] = evaluateQuery('//div')
+    expect(items[0]?.preview).toBe('[EMPTY]')
+  })
+
+  it('focuses and scrolls the selected element into view', () => {
+    setDom('<p>first</p><p>second</p>')
+    const target = document.querySelectorAll('p')[1]
+    const scrollIntoView = vi.fn()
+    target.scrollIntoView = scrollIntoView
+
+    expect(focusQueryResult('//p', 1)).toBe(true)
+    expect(target.classList.contains('xh-highlight')).toBe(true)
+    expect(document.querySelectorAll('.xh-highlight')).toHaveLength(1)
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: 'smooth',
+      block: 'center',
+      inline: 'nearest',
+    })
+  })
+
+  it('focuses an attribute result through its owner element', () => {
+    setDom('<a href="/docs">docs</a>')
+    const target = document.querySelector('a')!
+    target.scrollIntoView = vi.fn()
+
+    expect(focusQueryResult('//a/@href', 0)).toBe(true)
+    expect(target.classList.contains('xh-highlight')).toBe(true)
+  })
+
+  it('does not change highlights for an out-of-range result', () => {
+    setDom('<p class="xh-highlight">first</p>')
+    expect(focusQueryResult('//p', 2)).toBe(false)
+    expect(document.querySelector('p')?.classList.contains('xh-highlight')).toBe(true)
   })
 })
 

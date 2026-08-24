@@ -1,3 +1,5 @@
+import type { XPathEvaluationResponse, XPathResultItem } from './types/messages'
+
 // A sibling matcher decides whether a same-tag sibling belongs to the SAME set
 // that the emitted component predicate selects. XPath applies a predicate
 // BEFORE the positional index, so `tag[predicate][n]` means "the n-th element
@@ -257,10 +259,37 @@ const collectAttributeNames = (els: Element[]): string[] => {
     return Array.from(names).sort();
 };
 
-const evalNodeValue = (xpathResult: XPathResult): [string, number, string[]] => {
+const getNodePreview = (node: Node): string => {
+    const rawValue = node.nodeType === Node.ATTRIBUTE_NODE
+        ? (node as Attr).value
+        : node.textContent ?? '';
+    const normalized = rawValue.replace(/\s+/g, ' ').trim();
+    return normalized || '[EMPTY]';
+};
+
+const getResultItem = (node: Node, index: number): XPathResultItem => {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+        return {
+            index,
+            preview: getNodePreview(node),
+            nodeType: 'element',
+            tagName: (node as Element).tagName.toLowerCase(),
+        };
+    }
+    if (node.nodeType === Node.ATTRIBUTE_NODE) {
+        return { index, preview: getNodePreview(node), nodeType: 'attribute' };
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+        return { index, preview: getNodePreview(node), nodeType: 'text' };
+    }
+    return { index, preview: getNodePreview(node), nodeType: 'other' };
+};
+
+const evalNodeValue = (xpathResult: XPathResult): XPathEvaluationResponse => {
     let str = '';
     let nodeCount = 0;
     const toHighlight: Element[] = [];
+    const items: XPathResultItem[] = [];
     if (xpathResult.resultType === XPathResult.BOOLEAN_TYPE) {
         str = xpathResult.booleanValue ? '1' : '0';
         nodeCount = 1;
@@ -277,10 +306,12 @@ const evalNodeValue = (xpathResult: XPathResult): [string, number, string[]] => 
             if (node.nodeType === Node.ELEMENT_NODE) {
                 toHighlight.push(<Element>node);
             }
+            const item = getResultItem(node, nodeCount);
+            items.push(item);
             if (str) {
                 str += '\n';
             }
-            str += node.textContent;
+            str += item.preview;
             nodeCount++;
         }
         if (nodeCount === 0) {
@@ -294,9 +325,41 @@ const evalNodeValue = (xpathResult: XPathResult): [string, number, string[]] => 
     }
 
     highlight(toHighlight);
-    return [str, nodeCount, collectAttributeNames(toHighlight)];
+    return [str, nodeCount, collectAttributeNames(toHighlight), items];
 }
-const evaluateQuery = (query: string): [string, number, string[]] => {
+
+const focusQueryResult = (query: string, index: number): boolean => {
+    let xpathResult: XPathResult;
+    try {
+        xpathResult = document.evaluate(
+            query,
+            document,
+            null,
+            XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+            null
+        );
+    } catch {
+        return false;
+    }
+
+    const node = xpathResult.snapshotItem(index);
+    let el: Element | null = null;
+    if (node?.nodeType === Node.ELEMENT_NODE) {
+        el = node as Element;
+    } else if (node?.nodeType === Node.ATTRIBUTE_NODE) {
+        el = (node as Attr).ownerElement;
+    } else {
+        el = node?.parentElement ?? null;
+    }
+    if (!el) return false;
+
+    clearHighlights();
+    highlight(el);
+    el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    return true;
+};
+
+const evaluateQuery = (query: string): XPathEvaluationResponse => {
     let xpathResult = null;
     let str = '';
     let nodeCount = 0;
@@ -310,7 +373,7 @@ const evaluateQuery = (query: string): [string, number, string[]] => {
     }
 
     if (!xpathResult) {
-        return [str, nodeCount, []];
+        return [str, nodeCount, [], []];
     }
 
     return evalNodeValue(xpathResult);
@@ -320,11 +383,13 @@ export {
     highlight,
     clearHighlights,
     evaluateQuery,
+    focusQueryResult,
     makeQueryForElement,
     // Pure helpers exported for unit testing (behavior-preserving; no runtime
     // change to the extension, which imports only the functions above).
     escapeXPathString,
     getIdContainsCandidates,
     getElementIndex,
-    collectAttributeNames
+    collectAttributeNames,
+    getNodePreview,
 }

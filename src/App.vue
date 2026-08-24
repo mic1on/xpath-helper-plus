@@ -39,7 +39,7 @@ body {
 <style scoped>
 .xh-app-shell {
   position: relative;
-  min-height: max(120px, 100vh);
+  min-height: max(190px, 100vh);
   overflow: hidden;
   background:
     radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.28), transparent 28%),
@@ -72,7 +72,7 @@ body {
 .xh-workspace {
   position: relative;
   z-index: 1;
-  min-height: max(120px, 100vh);
+  min-height: max(190px, 100vh);
   padding: 10px 12px;
 }
 

@@ -1,5 +1,5 @@
 import Bar from './bar'
-import { clearHighlights, evaluateQuery, makeQueryForElement } from './xpath'
+import { clearHighlights, evaluateQuery, focusQueryResult, makeQueryForElement } from './xpath'
 import { sendMessageToPopup } from './lib/messaging'
 import type { PopupMessage } from './types/messages'
 
@@ -74,6 +74,9 @@ chrome.runtime.onMessage.addListener(function (request: PopupMessage, sender, se
     clearHighlights()
     const res = evaluateQuery(request.value)
     sendResponse(res)
+  }
+  if (request.cmd === 'focusResult') {
+    sendResponse(focusQueryResult(request.value, request.index))
   }
   if (request.cmd === 'short') {
     xpathShort = request.value

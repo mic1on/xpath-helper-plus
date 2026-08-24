@@ -1,7 +1,7 @@
 import { sendMessageToContentScript } from '@/utils'
 import { useLocalStorage, useClipboard } from '@vueuse/core'
 import xPathToCss from 'xpath-to-css'
-import type { PopupMessage } from '@/types/messages'
+import type { PopupMessage, XPathEvaluationResponse, XPathResultItem } from '@/types/messages'
 import { useQueryHistory } from './useQueryHistory'
 
 function getChromeApi(): typeof chrome | undefined {
@@ -17,6 +17,7 @@ export function useXPathWorkbench() {
   const xpathContainsId = useLocalStorage<boolean>('xpathContainsId', false)
   const xpathResult = ref<string>('')
   const xpathResultCount = ref<number | null>(null)
+  const xpathResultItems = ref<XPathResultItem[]>([])
   // Attribute names present on the currently matched element nodes (issue #24),
   // used to render the dynamic "append extraction" buttons in the result area.
   const xpathAttributes = ref<string[]>([])
@@ -40,10 +41,11 @@ export function useXPathWorkbench() {
     const message: PopupMessage = { cmd: 'xpath', value: xpathRule.value }
     // Route evaluation to the frame that produced the current query (issue
     // #25); defaults to the top frame when nothing iframe-specific is selected.
-    sendMessageToContentScript(message, (response: any) => {
+    sendMessageToContentScript(message, (response?: XPathEvaluationResponse) => {
       xpathResult.value = response?.[0] ?? ''
       xpathResultCount.value = response?.[1] ?? null
       xpathAttributes.value = Array.isArray(response?.[2]) ? response[2] : []
+      xpathResultItems.value = Array.isArray(response?.[3]) ? response[3] : []
     }, activeFrameId.value)
   }
 
@@ -68,6 +70,14 @@ export function useXPathWorkbench() {
   const handleContainsId = (v: boolean) => {
     xpathContainsId.value = v
     sendMessageToContentScript({ cmd: 'containsId', value: xpathContainsId.value })
+  }
+
+  const handleFocusResult = (index: number) => {
+    sendMessageToContentScript({
+      cmd: 'focusResult',
+      value: xpathRule.value,
+      index,
+    }, undefined, activeFrameId.value)
   }
 
   const handlePosition = () => {
@@ -100,6 +110,7 @@ export function useXPathWorkbench() {
         ? `[CSS CONVERSION FAILED] ${error.message}`
         : '[CSS CONVERSION FAILED]'
       xpathResultCount.value = null
+      xpathResultItems.value = []
     }
   }
 
@@ -143,6 +154,7 @@ export function useXPathWorkbench() {
     xpathContainsId,
     xpathResult,
     xpathResultCount,
+    xpathResultItems,
     xpathAttributes,
     xpathContextActive,
     activeFrameUrl,
@@ -150,6 +162,7 @@ export function useXPathWorkbench() {
     handleShort,
     handleBatch,
     handleContainsId,
+    handleFocusResult,
     handlePosition,
     handleSetContext,
     handleClearContext,
