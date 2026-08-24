@@ -16,6 +16,7 @@ defineProps<{
   isSupported: boolean
   queryHistory: HistoryItem[]
   contextActive: boolean
+  pageConnected: boolean
 }>()
 
 const { locale, t } = useI18n()
@@ -145,6 +146,7 @@ const formatTime = (timestamp: number) => {
           class="xh-context-btn"
           :class="{ 'xh-context-btn--active': contextActive }"
           type="button"
+          :disabled="!pageConnected"
           :title="contextActive ? t('clearContextTitle') : t('setContextTitle')"
           @click="contextActive ? emit('clear-context') : emit('set-context')"
         >
@@ -217,6 +219,7 @@ const formatTime = (timestamp: number) => {
       class="xh-textarea"
       :aria-label="t('xpathRule')"
       spellcheck="false"
+      :disabled="!pageConnected"
       :value="modelValue"
       @input="handleInput"
       @keydown="handleKeyDown"

@@ -1,4 +1,3 @@
-/** Message sent from popup (home) to content script */
 export interface XPathResultItem {
   index: number
   preview: string
@@ -51,49 +50,33 @@ export interface RequestContentStateMessage {
   cmd: 'requestContentState'
 }
 
-export interface PositionMessage {
-  cmd: 'position'
-}
-
-/**
- * Context-pin commands for relative XPath generation (issue #26).
- * - `setContext` pins the last hovered element as the context node, so later
- *   generation emits `.`-relative expressions (e.g. `.//span[@class='price']`).
- * - `clearContext` removes the pin and returns to absolute/root generation.
- */
 export interface ContextMessage {
   cmd: 'setContext' | 'clearContext'
 }
 
-/** Message sent from content script to popup */
 export interface QueryResult {
+  cmd: 'queryGenerated'
   query: string
-  /**
-   * URL of the frame that generated this query (issue #25). With
-   * `all_frames: true` the content script runs in every frame, so a query
-   * produced by Shift+hover inside an iframe is relative to THAT frame's
-   * document. The popup pairs this URL with the `sender.frameId` it reads off
-   * the message to label the active frame and route later evaluation back to
-   * the correct frame.
-   */
   frameUrl?: string
 }
 
-/**
- * Content-script -> popup notification of whether a context node is currently
- * pinned, so the popup can reflect the toggle state (issue #26).
- */
 export interface ContextStateResult {
-  contextActive: boolean
+  cmd: 'contextState'
+  active: boolean
 }
 
-export type PopupMessage =
+export type SidePanelMessage =
   | QueryMessage
   | FocusResultMessage
   | StateUpdateMessage
   | GetStateMessage
-  | PositionMessage
   | ContextMessage
+
 export type ContentScriptMessage = QueryResult | ContextStateResult | RequestContentStateMessage
 
-export type SendResponseCallback = (response?: any) => void
+export interface ContentScriptTarget {
+  tabId: number
+  frameId?: number
+}
+
+export type SendResponseCallback = (response?: unknown) => void

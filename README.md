@@ -1,8 +1,6 @@
 # xpath-helper-plus
 
-![xpath-helper-plus screenshot](https://miclon-job.oss-cn-hangzhou.aliyuncs.com/img/20220622143923.png)
-
-A Chrome MV3 developer extension (Vue 3 + Vite) that generates a minimal, unique XPath for a selected element and lets you evaluate XPath queries against the page.
+基于 Vue 3、Vite 和 [Vitesse WebExt](https://github.com/antfu-collective/vitesse-webext) 架构构建的 Chrome MV3 开发者扩展。它通过浏览器原生 Side Panel 生成精简 XPath，并直接在当前页面求值。
 
 [English](./README.en.md) | 简体中文
 
@@ -10,75 +8,87 @@ A Chrome MV3 developer extension (Vue 3 + Vite) that generates a minimal, unique
 
 ## 功能清单
 
-| 功能 | 说明 |
-|------|------|
-| **元素拾取** | 按住 `Shift` + 鼠标悬停/点击页面任意元素，自动生成该元素的唯一 XPath 并回填到编辑器。 |
-| **自动精简为最短唯一 XPath** | 从目标元素向上遍历 DOM，寻找最短且在当前页面唯一的 XPath；若当前路径不唯一则继续向上。 |
-| **健壮的 class 匹配** | 采用按 token 的 `contains(concat(' ', normalize-space(@class), ' '), ' <token> ')` 断言，与 class 顺序、空白无关；并自动剔除 `active`/`hover`/`is-open` 等运行时状态 class，只保留结构性 class，避免框架动态增删状态类导致定位失效（#12）。 |
-| **位置索引正确性** | `tag[predicate][n]` 的位置索引 `n` 统计的是**满足 predicate 的同标签兄弟节点**，而非所有同标签兄弟节点（修复 #13）。 |
-| **查询编辑器** | 左侧面板：可手写/编辑 XPath；三个开关——**精简xpath**（自动精简）、**contains id**（允许在谓词中使用 id）、**列表模式**（批量/不加位置索引）。 |
-| **结果预览** | 右侧面板：实时显示当前 XPath 匹配的节点数与序列化结果；提供“换个位置”切换面板上下位置。 |
-| **一键复制 XPath** | 编辑器顶部“复制”按钮，复制当前 XPath 到剪贴板。 |
-| **一键转 CSS** | 编辑器顶部“复制css”按钮，将当前 XPath 通过 `xpath-to-css` 转为 CSS 选择器并复制。 |
-| **配置持久化** | 三个开关状态通过 `localStorage` 持久化，重启浏览器后保持。 |
-| **iframe 元素定位** | 内容脚本以 `all_frames` 注入所有子框架（含跨源 iframe / `about:blank`），可在 iframe 内 `Shift` 悬停拾取元素；生成的 XPath 相对该 iframe 文档，结果面板显示所属 iframe 徽标，求值自动路由回同一框架（#25）。跨源 iframe 的父子文档互相隔离，因此 XPath 不跨越框架边界。 |
-| **键盘快捷键** | `Alt+Shift+X` 切换浮动栏显示/隐藏（可在 `chrome://extensions/shortcuts` 自定义）。 |
-| **中英文界面** | 首次按 Chrome UI 语言自动选择中文或英文，并可通过结果面板的 `中 / EN` 控件切换；选择会持久化。 |
+- **原生侧边栏工作台**：编辑器和结果区常驻网页旁边，不再向网页注入应用界面。
+- **元素拾取**：按住 `Shift` 并悬停网页元素，自动生成 XPath 并回填到侧边栏。
+- **最短唯一 XPath**：从目标元素向上遍历 DOM，寻找能够唯一定位元素的精简表达式。
+- **健壮的 class 匹配**：按 class token 生成谓词，并剔除 `active`、`hover`、`is-open` 等运行时状态 class。
+- **正确的位置索引**：`tag[predicate][n]` 的索引只统计满足同一 predicate 的同标签兄弟节点。
+- **实时查询编辑器**：编辑 XPath 后立即查看匹配节点数量和结果。
+- **精简、包含 ID 与列表模式**：控制唯一性精简、部分 ID 匹配和批量定位。
+- **属性与文本提取**：一键追加 `text()`、常用属性或匹配元素上实际存在的属性。
+- **相对 XPath 上下文**：固定悬停过的容器节点，并生成相对该节点的表达式。
+- **查询历史**：复用、置顶或清除显式执行过的 XPath。
+- **iframe 支持**：支持在同源和跨源 iframe 内拾取与求值；后续操作会路由回产生查询的同一标签页和 frame。
+- **复制 XPath 与 CSS**：复制当前 XPath，或转换为 CSS 选择器后复制。
+- **中英文界面**：首次使用跟随 Chrome UI 语言，也可通过 `中 / EN` 控件持久切换。
+- **键盘快捷键**：按 `Alt+Shift+X` 打开侧边栏，可在 `chrome://extensions/shortcuts` 自定义。
 
 ---
 
-## 使用姿势
+## 使用方式
 
-1. **安装扩展后**，点击浏览器右上角工具栏图标，即可在当前页面切换显示/隐藏浮动栏（面板以 iframe 注入页面，而非独立弹窗）。
-2. **姿势 1（手写/微调）**：在左侧编辑器直接输入或修改 XPath，右侧实时预览匹配结果。
-3. **姿势 2（拾取元素）**：按住 `Shift` 键，在网页上悬停或点击目标元素，XPath 自动生成并回填编辑器。
-4. **键盘快捷键**：按 `Alt+Shift+X` 快速切换浮动栏显示/隐藏（与点击工具栏图标等效）。
-5. 根据需要切换“精简xpath”“contains id”“列表模式”三个开关。
-6. 点击“复制”获取 XPath，或点击“复制css”获取等价 CSS 选择器。
+1. 打开普通网页，点击浏览器工具栏中的扩展图标，或按 `Alt+Shift+X` 打开 Side Panel。
+2. 在编辑器中输入 XPath，即可针对当前活动页面实时求值。
+3. 需要拾取元素时，按住 `Shift` 并将鼠标悬停到目标元素，生成的 XPath 会显示在侧边栏。
+4. 根据需要切换“精简 XPath”“包含 ID”或“列表模式”。
+5. 使用“复制”获取 XPath，或使用“复制 CSS”获取转换后的 CSS 选择器。
+6. 使用 `中 / EN` 控件切换界面语言。
+
+Chrome 内部页面、Chrome 应用商店等受限页面不允许注入内容脚本，侧边栏会在这些页面显示不可用状态。
 
 ---
 
 ## 安装
 
-> **目前仅提供源码加载方式**，暂无 Chrome 应用商店上架链接。
+> 当前仅提供源码加载方式，尚未发布到 Chrome 应用商店。
 
 ### 环境要求
-- Node.js **20+**（以 `package.json` 的 `engines` 字段为准，Vite 6 要求 Node 20 及以上）
 
-### 本地加载步骤
+- Node.js 20+
+- pnpm 10+
+- Chrome 116+，用于 `sidePanel.open()` API
+
+### 本地加载
+
 ```bash
-# 1. 克隆项目
 git clone https://github.com/mic1on/xpath-helper-plus.git
 cd xpath-helper-plus
-
-# 2. 安装依赖
-npm install
-
-# 3. 构建扩展（产物在 dist/）
-npm run build
-
-# 4. Chrome 扩展管理页 → 开发者模式 → 加载已解压的扩展程序 → 选择 dist 目录
+pnpm install
+pnpm build
 ```
+
+打开 `chrome://extensions`，启用“开发者模式”，点击“加载已解压的扩展程序”，选择项目中的 `extension/` 目录。
 
 ---
 
-## 开发 / 构建
+## 开发与构建
+
+项目采用 Vitesse WebExt 目录结构：
+
+- `src/sidepanel/`：Vue Side Panel 入口
+- `src/background/`：MV3 Service Worker 入口
+- `src/contentScripts/`：自包含、注入所有 frame 的内容脚本
+- `src/manifest.ts`：带类型的 Manifest 源文件
+- `extension/`：Chrome 加载的扩展根目录和生产构建输出
+- `scripts/`：Manifest 准备与发布打包脚本
 
 | 命令 | 说明 |
-|------|------|
-| `npm run dev` | 监听模式构建（开发时用，修改代码自动重建） |
-| `npm run build` | 生产构建，输出到 `dist/`（可直接加载为扩展） |
-| `npm run typecheck` | TypeScript 类型检查（`vue-tsc --noEmit`） |
-| `npm run test:unit` | 单元测试（`vitest run`） |
-| `npm run test:e2e` | 端到端测试 |
+|---|---|
+| `pnpm dev` | 启动 Vite 并监听 background/content script；Chrome 中加载 `extension/` |
+| `pnpm build` | 生产构建，输出到 `extension/` |
+| `pnpm lint` | 运行 ESLint |
+| `pnpm typecheck` | 运行 Vue 和 TypeScript 类型检查 |
+| `pnpm test:unit` | 运行 Vitest 单元测试 |
+| `pnpm test:e2e` | 构建扩展，并使用 Ego Lite 验证侧边栏与内容脚本 |
+| `pnpm release:pack` | 构建并在 `release/` 下生成发布压缩包 |
 
 ### 发布流程
-- 版本号单一来源：`package.json` 的 `version` 字段。
-- PR 合并到 `main` 后，GitHub Actions **Build Release** 会比较合并前后的 `package.json` 版本。只有版本号按 `x.y.z` 格式升级时才发布；版本未变则跳过，版本降级则失败。
-- 检测到版本升级后，工作流会：
-  1. `npm ci` → `typecheck` → `test:unit` → `build`
-  2. `scripts/package-release.mjs` 将 `dist/` 打包为 `xpath-helper-plus-v<version>.zip`
-  3. 自动创建 `v<version>` 标签和 GitHub Release，并上传压缩包附件
+
+`package.json` 中的版本号是发布版本的唯一来源。PR 合并到 `main` 后，GitHub Actions 的 **Build Release** 工作流会比较合并前后的版本：
+
+- 版本升级时执行 lint、类型检查、单元测试和构建，打包完整 `extension/` 目录，并创建对应的 `v<version>` 标签与 GitHub Release。
+- 版本未变化时跳过发布。
+- 版本降级时工作流失败。
 
 ---
 

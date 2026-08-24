@@ -1,4 +1,3 @@
-import { ref, watch } from 'vue'
 import { useLocalStorage } from '@vueuse/core'
 
 const MAX_HISTORY = 20

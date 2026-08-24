@@ -6,9 +6,9 @@
     "message": "直接在网页中生成、求值和检查 XPath 表达式。"
   },
   "actionTitle": {
-    "message": "显示或隐藏 XPath Helper Plus"
+    "message": "打开 XPath Helper Plus"
   },
-  "toggleBarCommand": {
-    "message": "显示或隐藏 XPath Helper Plus 浮动栏"
+  "openSidePanelCommand": {
+    "message": "打开 XPath Helper Plus 侧边栏"
   }
 }
