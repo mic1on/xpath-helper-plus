@@ -3,11 +3,95 @@ name: Build Release
 on:
   push:
     branches: [main]
-    tags: ['v*']
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
+  version:
+    runs-on: ubuntu-latest
+
+    outputs:
+      should_build: ${{ steps.version.outputs.should_build }}
+      should_release: ${{ steps.version.outputs.should_release }}
+      tag: ${{ steps.version.outputs.tag }}
+
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect version upgrade
+        id: version
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from 'node:fs'
+          import { execFileSync } from 'node:child_process'
+
+          const parseVersion = (value, source) => {
+            if (typeof value !== 'string' || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value)) {
+              throw new Error(`${source} must contain a numeric x.y.z version, received ${JSON.stringify(value)}`)
+            }
+
+            const parts = value.split('.').map(Number)
+            if (parts.some(part => part > 65535)) {
+              throw new Error(`${source} version components must not exceed 65535`)
+            }
+            return parts
+          }
+
+          const compareVersions = (left, right) => {
+            for (let index = 0; index < left.length; index += 1) {
+              if (left[index] !== right[index]) return left[index] > right[index] ? 1 : -1
+            }
+            return 0
+          }
+
+          const currentPackage = JSON.parse(readFileSync('package.json', 'utf8'))
+          const current = parseVersion(currentPackage.version, 'Current package.json')
+          const tag = `v${currentPackage.version}`
+
+          if (process.env.EVENT_NAME === 'workflow_dispatch') {
+            appendFileSync(process.env.GITHUB_OUTPUT, 'should_build=true\n')
+            appendFileSync(process.env.GITHUB_OUTPUT, 'should_release=false\n')
+            appendFileSync(process.env.GITHUB_OUTPUT, `tag=${tag}\n`)
+            console.log(`Manual build requested for ${currentPackage.version}; release creation skipped`)
+            process.exit(0)
+          }
+
+          const previousPackage = JSON.parse(
+            execFileSync('git', ['show', `${process.env.BEFORE_SHA}:package.json`], { encoding: 'utf8' }),
+          )
+          const previous = parseVersion(previousPackage.version, 'Previous package.json')
+          const comparison = compareVersions(current, previous)
+
+          if (comparison < 0) {
+            throw new Error(`Version downgrade is not allowed: ${previousPackage.version} -> ${currentPackage.version}`)
+          }
+
+          const shouldRelease = comparison > 0
+          if (shouldRelease && execFileSync('git', ['tag', '--list', tag], { encoding: 'utf8' }).trim()) {
+            throw new Error(`Tag ${tag} already exists; package.json must use a new version`)
+          }
+
+          appendFileSync(process.env.GITHUB_OUTPUT, `should_build=${shouldRelease}\n`)
+          appendFileSync(process.env.GITHUB_OUTPUT, `should_release=${shouldRelease}\n`)
+          appendFileSync(process.env.GITHUB_OUTPUT, `tag=${tag}\n`)
+          console.log(
+            shouldRelease
+              ? `Version upgraded: ${previousPackage.version} -> ${currentPackage.version}`
+              : `Version unchanged at ${currentPackage.version}; build and release skipped`,
+          )
+          NODE
+
   build:
+    needs: version
+    if: needs.version.outputs.should_build == 'true'
     runs-on: ubuntu-latest
 
     permissions:
@@ -40,7 +124,12 @@ jobs:
           path: release/
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: needs.version.outputs.should_release == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: ${{ needs.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
           files: release/*.zip
