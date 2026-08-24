@@ -4,6 +4,7 @@ import {
   getIdContainsCandidates,
   getElementIndex,
   makeQueryForElement,
+  collectAttributeNames,
 } from '@/xpath'
 
 // Unit / characterization tests for the pure logic in src/xpath.ts.
@@ -353,5 +354,117 @@ describe('makeQueryForElement #13 behavioral (query resolves to the selected nod
     const target = document.getElementById('target')!
     const query = makeQueryForElement(target)
     expect(resolveOne(query)).toBe(target)
+  })
+})
+
+// Relative XPath generation from a pinned context node (issue #26). When a
+// context element is supplied, the walk stops there and emits a `.`-relative
+// expression suitable for crawler loops (evaluate against each context node).
+describe('makeQueryForElement relative context (#26)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  function resolveOne(query: string, contextNode: Node): Node | null {
+    const result = document.evaluate(
+      query,
+      contextNode,
+      null,
+      XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+      null
+    )
+    if (result.snapshotLength !== 1) return null
+    return result.snapshotItem(0)
+  }
+
+  it('emits a `.`-relative path that stops at the context node', () => {
+    setDom(
+      '<ul><li class="row"><span class="price">9.9</span></li></ul>'
+    )
+    const context = document.querySelector('li.row')!
+    const target = document.querySelector('span.price')!
+    const query = makeQueryForElement(target, false, false, false, context)
+    expect(query).toBe(
+      "./span[contains(concat(' ', normalize-space(@class), ' '), ' price ')]"
+    )
+    expect(resolveOne(query, context)).toBe(target)
+  })
+
+  it('returns "." when the target IS the context node', () => {
+    setDom('<div id="ctx"><span>x</span></div>')
+    const context = document.getElementById('ctx')!
+    expect(makeQueryForElement(context, false, false, false, context)).toBe('.')
+  })
+
+  it('collapses to `.//component` in short mode when unique within the context', () => {
+    setDom(
+      '<li class="row"><div><span class="price">9.9</span></div></li>'
+    )
+    const context = document.querySelector('li.row')!
+    const target = document.querySelector('span.price')!
+    // The price span is unique within the context subtree, so short mode
+    // collapses the intermediate path to `.//`.
+    const query = makeQueryForElement(target, true, false, false, context)
+    expect(query).toBe(
+      ".//span[contains(concat(' ', normalize-space(@class), ' '), ' price ')]"
+    )
+    expect(resolveOne(query, context)).toBe(target)
+  })
+
+  it('relative path resolves correctly against sibling context nodes (crawler loop)', () => {
+    // Two structurally identical list rows. A relative expression generated
+    // from one row must resolve the analogous element inside EACH row.
+    setDom(
+      '<ul>' +
+        '<li class="row"><span class="price">1</span><a class="link">x</a></li>' +
+        '<li class="row"><span class="price">2</span><a class="link">y</a></li>' +
+      '</ul>'
+    )
+    const rows = document.querySelectorAll('li.row')
+    const firstLink = rows[0].querySelector('a.link')!
+    const query = makeQueryForElement(firstLink, false, false, false, rows[0] as Element)
+    // Same relative query, evaluated against the SECOND row, resolves its link.
+    expect(resolveOne(query, rows[1])).toBe(rows[1].querySelector('a.link'))
+  })
+
+  it('omits positional index under batch mode in relative context', () => {
+    setDom(
+      '<div class="ctx"><ul><li class="item">a</li><li class="item">b</li></ul></div>'
+    )
+    const context = document.querySelector('div.ctx')!
+    const secondLi = document.querySelectorAll('li')[1]
+    const query = makeQueryForElement(secondLi, false, true, false, context)
+    expect(query).toBe(
+      "./ul/li[contains(concat(' ', normalize-space(@class), ' '), ' item ')]"
+    )
+  })
+})
+
+describe('collectAttributeNames', () => {
+  beforeEach(() => setDom(''))
+
+  it('returns the sorted, de-duplicated union of attribute names (issue #24)', () => {
+    setDom(
+      '<a href="/x" class="link" data-id="1">x</a>' +
+      '<img src="/i.png" class="thumb" srcset="/i2.png 2x">'
+    )
+    const els = Array.from(document.querySelectorAll('a, img'))
+    expect(collectAttributeNames(els)).toEqual([
+      'class',
+      'data-id',
+      'href',
+      'src',
+      'srcset',
+    ])
+  })
+
+  it('returns an empty list when no element carries attributes', () => {
+    setDom('<span>plain</span>')
+    const els = Array.from(document.querySelectorAll('span'))
+    expect(collectAttributeNames(els)).toEqual([])
+  })
+
+  it('returns an empty list for an empty node set', () => {
+    expect(collectAttributeNames([])).toEqual([])
   })
 })

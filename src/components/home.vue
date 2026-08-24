@@ -10,13 +10,18 @@ const {
   xpathContainsId,
   xpathResult,
   xpathResultCount,
+  xpathAttributes,
+  xpathContextActive,
   isSupported,
   handleShort,
   handleBatch,
   handleContainsId,
   handlePosition,
+  handleSetContext,
+  handleClearContext,
   handleCopy,
   handleToCss,
+  handleAppendExtraction,
   queryHistory,
   clearQueryHistory,
   toggleQueryPin,
@@ -33,6 +38,7 @@ const {
       :xpath-contains-id="xpathContainsId"
       :is-supported="isSupported"
       :query-history="queryHistory"
+      :context-active="xpathContextActive"
       @update:xpath-short="handleShort"
       @update:xpath-batch="handleBatch"
       @update:xpath-contains-id="handleContainsId"
@@ -42,11 +48,15 @@ const {
       @clear-history="clearQueryHistory"
       @toggle-pin="toggleQueryPin"
       @run-query="runQuery"
+      @set-context="handleSetContext"
+      @clear-context="handleClearContext"
     />
     <ResultPreviewCard
       v-model="xpathResult"
       :result-count="xpathResultCount"
+      :attributes="xpathAttributes"
       @position="handlePosition"
+      @append-extraction="handleAppendExtraction"
     />
   </div>
 </template>
