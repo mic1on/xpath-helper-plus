@@ -24,17 +24,35 @@ export interface FocusResultMessage {
   index: number
 }
 
+export interface ContentScriptState {
+  enabled: boolean
+  xpathShort: boolean
+  xpathBatch: boolean
+  xpathContainsId: boolean
+}
+
 export interface ToggleMessage {
   cmd: 'short' | 'batch' | 'containsId'
   value: boolean
 }
 
-export interface PositionMessage {
-  cmd: 'position'
+export interface SetEnabledMessage {
+  cmd: 'setEnabled'
+  value: boolean
 }
 
-export interface ToggleBarMessage {
-  cmd: 'toggleBar'
+export type StateUpdateMessage = ToggleMessage | SetEnabledMessage
+
+export interface GetStateMessage {
+  cmd: 'getState'
+}
+
+export interface RequestContentStateMessage {
+  cmd: 'requestContentState'
+}
+
+export interface PositionMessage {
+  cmd: 'position'
 }
 
 /**
@@ -72,10 +90,10 @@ export interface ContextStateResult {
 export type PopupMessage =
   | QueryMessage
   | FocusResultMessage
-  | ToggleMessage
+  | StateUpdateMessage
+  | GetStateMessage
   | PositionMessage
-  | ToggleBarMessage
   | ContextMessage
-export type ContentScriptMessage = QueryResult | ContextStateResult
+export type ContentScriptMessage = QueryResult | ContextStateResult | RequestContentStateMessage
 
 export type SendResponseCallback = (response?: any) => void
