@@ -41,6 +41,14 @@ test('manifest injects the content script into all frames for iframe support', a
   expect(contentScript.match_about_blank).toBe(true)
 })
 
+test('manifest does not request the unused scripting permission', async () => {
+  const manifestPath = path.resolve(__dirname, '../../src/manifest.json')
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+
+  expect(manifest.permissions).toContain('activeTab')
+  expect(manifest.permissions).not.toContain('scripting')
+})
+
 test('content script does not import shared chunks', async () => {
   const contentScriptPath = path.resolve(__dirname, '../../src/contentScript.ts')
   const contentScript = fs.readFileSync(contentScriptPath, 'utf8')
