@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useI18n } from '@/i18n'
 import type { XPathResultItem } from '@/types/messages'
 
-const { locale, setLocale, t } = useI18n()
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: string
@@ -57,27 +57,8 @@ const suggestions = computed(() => {
         <span class="xh-panel__eyebrow">{{ t('matchedResults') }}</span>
         <span v-show="resultCount" class="xh-count">{{ resultCount }}</span>
       </div>
-      <div class="xh-panel__actions">
-        <div class="xh-language" role="group" :aria-label="t('language')">
-          <button
-            class="xh-language__option"
-            :class="{ 'xh-language__option--active': locale === 'zh' }"
-            type="button"
-            :aria-pressed="locale === 'zh'"
-            :title="t('chinese')"
-            @click="setLocale('zh')"
-          >中</button>
-          <button
-            class="xh-language__option"
-            :class="{ 'xh-language__option--active': locale === 'en' }"
-            type="button"
-            :aria-pressed="locale === 'en'"
-            :title="t('english')"
-            @click="setLocale('en')"
-          >EN</button>
-        </div>
+      <div v-if="frameBadge" class="xh-panel__actions">
         <span
-          v-if="frameBadge"
           class="xh-frame-badge"
           :title="t('frameContext', { url: frameUrl ?? '' })"
         >

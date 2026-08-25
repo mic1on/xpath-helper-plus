@@ -12,18 +12,15 @@ import {
 // Unit / characterization tests for the pure logic in src/xpath.ts.
 //
 // These run under jsdom (see vitest.config.ts) because jsdom provides a
-// working document.evaluate(), which the toShort uniqueness check in
+// working document.evaluate(), which the shortest-unique check in
 // makeQueryForElement relies on via the internal countXPathMatches() helper.
-// happy-dom (v12) does not implement document.evaluate, so it cannot exercise
-// the toShort / containsId branches; jsdom was chosen for that reason.
+// happy-dom (v12) does not implement document.evaluate, so jsdom is used here.
 //
-// Several assertions below are CHARACTERIZATION tests: they lock in the code's
-// CURRENT behavior, including known-questionable output tracked in issue
-// #12 (class exact-match). The #13 bug (getElementIndex vs XPath position
-// semantics) has been fixed in this PR: getElementIndex now counts over the
-// same set the emitted predicate selects, and the previously TODO(#13)
-// characterization assertions have been flipped to the corrected behavior and
-// backed by behavioral tests that evaluate the full generated query.
+// Several assertions below are CHARACTERIZATION tests: they lock in the
+// shortest-unique output and the class/id stability rules. The #13 bug
+// (getElementIndex vs XPath position semantics) has been fixed: getElementIndex
+// now counts over the same set the emitted predicate selects, and behavioral
+// tests evaluate the full generated query.
 
 function setDom(html: string) {
   document.body.innerHTML = html
@@ -155,41 +152,96 @@ describe('makeQueryForElement', () => {
     document.body.innerHTML = ''
   })
 
-  it('builds a full absolute path with id, class, and positional predicates (plain mode)', () => {
+  it('builds a shortest-unique path with id and positional predicate', () => {
     setDom(
       '<div id="root"><ul><li class="item">a</li><li class="item">b</li><li class="item">c</li></ul></div>'
     )
     const secondLi = document.querySelectorAll('li')[1]
     expect(makeQueryForElement(secondLi)).toBe(
-      "/html/body/div[@id='root']/ul/li[contains(concat(' ', normalize-space(@class), ' '), ' item ')][2]"
+      "//li[@class='item'][2]"
     )
   })
 
   it('emits id predicate for an element carrying an id', () => {
     setDom('<div id="root"><ul></ul></div>')
     expect(makeQueryForElement(document.getElementById('root')!)).toBe(
-      "/html/body/div[@id='root']"
+      "//div[@id='root']"
     )
   })
 
-  it('uses a whitespace-normalized contains() token match for a single class', () => {
-    // #12 fix: class matching uses contains(concat(' ', normalize-space(@class),
-    // ' '), ' <token> '), which locates the element regardless of surrounding
-    // whitespace or additional sibling classes.
+  it('uses a compact [@class] match for a single class token', () => {
+    // Shortest-path priority: a lone class token emits the compact
+    // [@class='token'] form rather than the verbose contains() predicate.
+    setDom('<div><span class="card">t</span></div>')
+    expect(makeQueryForElement(document.querySelector('span')!)).toBe(
+      "//span[@class='card']"
+    )
+  })
+
+  it('uses the shortest structural class token for multiple classes', () => {
+    // Multi-class elements use the shortest stable token and a compact
+    // contains(@class, ...) predicate instead of concatenating every class.
     setDom('<div><span class="foo bar">t</span></div>')
     expect(makeQueryForElement(document.querySelector('span')!)).toBe(
-      "/html/body/div/span[contains(concat(' ', normalize-space(@class), ' '), ' foo ') and contains(concat(' ', normalize-space(@class), ' '), ' bar ')]"
+      "//span[contains(@class,'foo')]"
     )
   })
 
-  it('combines one contains() predicate per class token with `and` (multi-class)', () => {
-    // A multi-class element yields one whitespace-normalized contains() per
-    // STRUCTURAL token, joined with `and`, so the match is order-independent.
-    // `active` is a volatile/state token (#12 scenario 2) and is dropped so a
-    // runtime toggle of `active` cannot break the locator.
+  it('chooses the shortest structural class and drops volatile state classes', () => {
     setDom('<div><span class="btn active large">t</span></div>')
     expect(makeQueryForElement(document.querySelector('span')!)).toBe(
-      "/html/body/div/span[contains(concat(' ', normalize-space(@class), ' '), ' btn ') and contains(concat(' ', normalize-space(@class), ' '), ' large ')]"
+      "//span[contains(@class,'btn')]"
+    )
+  })
+
+  it('keeps a short stable class from a real multi-class table cell', () => {
+    setDom('<table><tbody><tr><td class="reg-checkin reg-checkin-ok">+$12</td></tr></tbody></table>')
+    expect(makeQueryForElement(document.querySelector('td')!)).toBe(
+      "//td[contains(@class,'reg-checkin')]"
+    )
+  })
+
+  it('keeps a field index in list mode when same-tag siblings share the class (issue: two reg-balance columns)', () => {
+    // Each row has eleven cells, two of which are `td.reg-balance` (registered
+    // balance + current balance). Hovering the current-balance column in list
+    // mode must isolate that column with a positional index, otherwise both
+    // balance columns highlight.
+    const row = '<tr>'
+      + '<td class="reg-email">e</td>'
+      + '<td class="reg-balance"><span>reg</span></td>'
+      + '<td class="reg-balance loading">loading</td>'
+      + '<td class="reg-checkin">-</td>'
+      + '</tr>'
+    setDom(`<table><tbody>${row}${row}${row}</tbody></table>`)
+    const secondRowCells = document.querySelectorAll('tr')[1].querySelectorAll('td')
+    // Cell index 2 is the current-balance column (second reg-balance).
+    expect(makeQueryForElement(secondRowCells[2], true)).toBe(
+      "//td[contains(@class,'reg-balance')][2]"
+    )
+  })
+
+  it('drops the index in list mode for a homogeneous column of buttons', () => {
+    const row = '<tr><td><button class="xllm-result-copy">复制</button></td></tr>'
+    setDom(`<table><tbody>${row}${row}</tbody></table>`)
+    const secondButton = document.querySelectorAll('button.xllm-result-copy')[1]
+    expect(makeQueryForElement(secondButton, true)).toBe(
+      "//button[@class='xllm-result-copy']"
+    )
+  })
+
+  it('generates a compact class XPath for repeated copy buttons', () => {
+    setDom(
+      '<table><tbody>'
+      + '<tr><td><button class="xllm-result-copy">复制 Key</button></td></tr>'
+      + '<tr><td><button class="xllm-result-copy">复制 Key</button></td></tr>'
+      + '</tbody></table>'
+    )
+    const secondButton = document.querySelectorAll('button.xllm-result-copy')[1]
+    expect(makeQueryForElement(secondButton)).toBe(
+      "//tr[2]/td/button[@class='xllm-result-copy']"
+    )
+    expect(makeQueryForElement(secondButton, true)).toBe(
+      "//button[@class='xllm-result-copy']"
     )
   })
 
@@ -200,7 +252,7 @@ describe('makeQueryForElement', () => {
     setDom('<div><span class="card active">t</span></div>')
     const query = makeQueryForElement(document.querySelector('span')!)
     expect(query).toBe(
-      "/html/body/div/span[contains(concat(' ', normalize-space(@class), ' '), ' card ')]"
+      "//span[contains(@class,'card')]"
     )
     setDom('<div><span class="card">t</span></div>')
     const [, count] = evaluateQueryCount(query)
@@ -211,14 +263,14 @@ describe('makeQueryForElement', () => {
     setDom('<div><span class="nav-item is-open tab-active">t</span></div>')
     // Only the structural `nav-item` token survives.
     expect(makeQueryForElement(document.querySelector('span')!)).toBe(
-      "/html/body/div/span[contains(concat(' ', normalize-space(@class), ' '), ' nav-item ')]"
+      "//span[contains(@class,'nav-item')]"
     )
   })
 
-  it('keeps all tokens when every class looks volatile (predicate still beats bare tag)', () => {
+  it('keeps the shortest token when every class looks volatile', () => {
     setDom('<div><span class="active hover">t</span></div>')
     expect(makeQueryForElement(document.querySelector('span')!)).toBe(
-      "/html/body/div/span[contains(concat(' ', normalize-space(@class), ' '), ' active ') and contains(concat(' ', normalize-space(@class), ' '), ' hover ')]"
+      "//span[contains(@class,'hover')]"
     )
   })
 
@@ -234,12 +286,13 @@ describe('makeQueryForElement', () => {
     expect(count).toBe(1)
   })
 
-  it('is robust to a dynamically added extra class', () => {
+  it('is robust to a dynamically added extra class (multi-class base)', () => {
     // A framework adding e.g. `active`/`hover` at runtime must not break the
-    // predicate built from the original class list.
-    setDom('<div><span class="foo">t</span></div>')
+    // predicate built from the original class list. This robustness applies to
+    // multi-class elements, which use the token-based contains() form.
+    setDom('<div><span class="foo bar">t</span></div>')
     const query = makeQueryForElement(document.querySelector('span')!)
-    setDom('<div><span class="foo active hover">t</span></div>')
+    setDom('<div><span class="foo bar active hover">t</span></div>')
     const [, count] = evaluateQueryCount(query)
     expect(count).toBe(1)
   })
@@ -249,7 +302,7 @@ describe('makeQueryForElement', () => {
     // rather than a malformed/empty one.
     setDom('<div><span class="   ">t</span></div>')
     expect(makeQueryForElement(document.querySelector('span')!)).toBe(
-      '/html/body/div/span'
+      '//span'
     )
   })
 
@@ -259,7 +312,7 @@ describe('makeQueryForElement', () => {
     const query = makeQueryForElement(target)
 
     expect(query).toContain("*[local-name()='svg' and namespace-uri()='http://www.w3.org/2000/svg']")
-    expect(query).toContain("' icon '")
+    expect(query).toContain("contains(@class,'icon')")
     expect(query).not.toContain("' active '")
   })
 
@@ -274,7 +327,7 @@ describe('makeQueryForElement', () => {
   it('appends /@src when the target element is an img', () => {
     setDom('<div><img src="x.png"></div>')
     expect(makeQueryForElement(document.querySelector('img')!)).toBe(
-      '/html/body/div/img/@src'
+      '//img/@src'
     )
   })
 
@@ -284,21 +337,21 @@ describe('makeQueryForElement', () => {
     )
     const secondLi = document.querySelectorAll('li')[1]
     // batch=true suppresses the trailing [index]; the id/class predicates stay.
-    expect(makeQueryForElement(secondLi, false, true)).toBe(
-      "/html/body/div[@id='root']/ul/li[contains(concat(' ', normalize-space(@class), ' '), ' item ')]"
+    expect(makeQueryForElement(secondLi, true)).toBe(
+      "//li[@class='item']"
     )
   })
 
-  it('stops early at a uniquely-matching component in toShort (精简) mode', () => {
+  it('stops early at a uniquely-matching component', () => {
     setDom(
       '<div id="root"><ul><li class="item">a</li><li class="item">b</li></ul><section><p id="uniqp">hi</p></section></div>'
     )
     const p = document.getElementById('uniqp')!
     // The id-bearing <p> is unique document-wide, so the short path collapses to //p[@id='uniqp'].
-    expect(makeQueryForElement(p, true)).toBe("//p[@id='uniqp']")
+    expect(makeQueryForElement(p)).toBe("//p[@id='uniqp']")
   })
 
-  it('toShort keeps building a relative path with a position index consistent with XPath (#13)', () => {
+  it('keeps building a relative path with a position index consistent with XPath (#13)', () => {
     // Fixed #13: the short path for a non-unique class element carries the
     // position index counted over the SAME set the class predicate selects.
     // Here two identical <li class="item"> exist, so the class contains()
@@ -309,30 +362,101 @@ describe('makeQueryForElement', () => {
       '<div id="root"><ul><li class="item">a</li><li class="item">b</li></ul></div>'
     )
     const firstLi = document.querySelectorAll('li')[0]
-    expect(makeQueryForElement(firstLi, true)).toBe(
-      "//li[contains(concat(' ', normalize-space(@class), ' '), ' item ')][1]"
+    expect(makeQueryForElement(firstLi)).toBe(
+      "//li[@class='item'][1]"
     )
   })
 
-  it('uses contains(@id, ...) with the first uniquely-matching token in containsId mode', () => {
-    // toShort + containsId: makeIdComponent tries contains(@id, <token>) for
-    // ascending-length candidates and picks the first that matches exactly one
-    // node. For "user-name-field-123" the numeric token "123" is unique here.
+  it('keeps ordinary semantic ids exact', () => {
     setDom('<div id="root"><span id="user-name-field-123">t</span></div>')
     const span = document.getElementById('user-name-field-123')!
-    expect(makeQueryForElement(span, true, false, true)).toBe(
-      "//span[contains(@id,'123')]"
+    expect(makeQueryForElement(span)).toBe(
+      "//span[@id='user-name-field-123']"
     )
   })
 
-  it('falls back to the full id in containsId mode when no shorter token is unique', () => {
-    // "ab-cd-ef" splits into ab/cd/ef, all shorter than 3 chars, so no partial
-    // token candidates survive; makeIdComponent falls back to the full id via
-    // contains(@id, 'ab-cd-ef') which is unique -> that whole path is unique.
+  it('keeps the full id when no shorter unique fragment is available', () => {
     setDom('<div id="root"><span id="ab-cd-ef">t</span></div>')
     const span = document.getElementById('ab-cd-ef')!
-    expect(makeQueryForElement(span, true, false, true)).toBe(
-      "//span[contains(@id,'ab-cd-ef')]"
+    expect(makeQueryForElement(span)).toBe(
+      "//span[@id='ab-cd-ef']"
+    )
+  })
+
+  it('uses a semantic phrase for a dynamic id', () => {
+    setDom('<div id="form-registration-9f3a2">target</div>')
+    const target = document.querySelector('div')!
+    expect(makeQueryForElement(target)).toBe(
+      "//div[contains(@id,'form-registration')]"
+    )
+  })
+
+  it('keeps a static button id intact instead of reducing it to a generic token', () => {
+    setDom('<button class="btn btn-sm btn-outline" id="btn-reg-copy-all">复制全部</button>')
+    const target = document.querySelector('button')!
+    expect(makeQueryForElement(target)).toBe(
+      "//button[@id='btn-reg-copy-all']"
+    )
+  })
+})
+
+describe('makeQueryForElement stable attributes', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('prefers data-testid over class as a stable anchor', () => {
+    setDom('<div><button class="btn primary" data-testid="submit">Go</button></div>')
+    const btn = document.querySelector('button')!
+    expect(makeQueryForElement(btn)).toBe(
+      "//button[@data-testid='submit']"
+    )
+  })
+
+  it('uses stable attributes automatically as the shortest unique anchor', () => {
+    setDom('<div><button class="btn" data-testid="submit">Go</button></div>')
+    const btn = document.querySelector('button')!
+    expect(makeQueryForElement(btn)).toBe(
+      "//button[@data-testid='submit']"
+    )
+  })
+
+  it('follows the priority order: name chosen over aria-label/role', () => {
+    setDom('<form><input name="email" aria-label="Email" role="textbox"></form>')
+    const input = document.querySelector('input')!
+    expect(makeQueryForElement(input)).toBe(
+      "//input[@name='email']"
+    )
+  })
+
+  it('falls back to aria-label when higher-priority attributes are absent', () => {
+    setDom('<div><span aria-label="Close dialog">x</span></div>')
+    const span = document.querySelector('span')!
+    expect(makeQueryForElement(span)).toBe(
+      "//span[@aria-label='Close dialog']"
+    )
+  })
+
+  it('skips a non-unique stable attribute in short mode and falls back to class', () => {
+    // Two elements share role="tab"; in short mode the role locator is not
+    // unique, so it is skipped and class is used instead.
+    setDom(
+      '<div>'
+      + '<button class="one" role="tab">A</button>'
+      + '<button class="two" role="tab">B</button>'
+      + '</div>'
+    )
+    const first = document.querySelector('button.one')!
+    expect(makeQueryForElement(first)).toBe(
+      "//button[@class='one']"
+    )
+  })
+
+  it('id still takes precedence over stable attributes', () => {
+    setDom('<div><span id="uid" data-testid="hook">t</span></div>')
+    const span = document.querySelector('span')!
+    expect(makeQueryForElement(span)).toBe(
+      "//span[@id='uid']"
     )
   })
 })
@@ -429,15 +553,17 @@ describe('makeQueryForElement relative context (#26)', () => {
     return result.snapshotItem(0)
   }
 
-  it('emits a `.`-relative path that stops at the context node', () => {
+  it('emits a `.//`-relative path that stops at the context node', () => {
     setDom(
       '<ul><li class="row"><span class="price">9.9</span></li></ul>'
     )
     const context = document.querySelector('li.row')!
     const target = document.querySelector('span.price')!
-    const query = makeQueryForElement(target, false, false, false, context)
+    const query = makeQueryForElement(target, false, context)
+    // The span is unique within the context subtree, so the shortest-unique
+    // collapse yields a `.//` relative locator.
     expect(query).toBe(
-      "./span[contains(concat(' ', normalize-space(@class), ' '), ' price ')]"
+      ".//span[@class='price']"
     )
     expect(resolveOne(query, context)).toBe(target)
   })
@@ -445,7 +571,7 @@ describe('makeQueryForElement relative context (#26)', () => {
   it('returns "." when the target IS the context node', () => {
     setDom('<div id="ctx"><span>x</span></div>')
     const context = document.getElementById('ctx')!
-    expect(makeQueryForElement(context, false, false, false, context)).toBe('.')
+    expect(makeQueryForElement(context, false, context)).toBe('.')
   })
 
   it('collapses to `.//component` in short mode when unique within the context', () => {
@@ -456,9 +582,9 @@ describe('makeQueryForElement relative context (#26)', () => {
     const target = document.querySelector('span.price')!
     // The price span is unique within the context subtree, so short mode
     // collapses the intermediate path to `.//`.
-    const query = makeQueryForElement(target, true, false, false, context)
+    const query = makeQueryForElement(target, false, context)
     expect(query).toBe(
-      ".//span[contains(concat(' ', normalize-space(@class), ' '), ' price ')]"
+      ".//span[@class='price']"
     )
     expect(resolveOne(query, context)).toBe(target)
   })
@@ -474,7 +600,7 @@ describe('makeQueryForElement relative context (#26)', () => {
     )
     const rows = document.querySelectorAll('li.row')
     const firstLink = rows[0].querySelector('a.link')!
-    const query = makeQueryForElement(firstLink, false, false, false, rows[0] as Element)
+    const query = makeQueryForElement(firstLink, false, rows[0] as Element)
     // Same relative query, evaluated against the SECOND row, resolves its link.
     expect(resolveOne(query, rows[1])).toBe(rows[1].querySelector('a.link'))
   })
@@ -483,7 +609,7 @@ describe('makeQueryForElement relative context (#26)', () => {
     setDom('<section id="context"><span>inside</span></section><aside><span id="target">outside</span></aside>')
     const context = document.getElementById('context')!
     const target = document.getElementById('target')!
-    const query = makeQueryForElement(target, true, false, false, context)
+    const query = makeQueryForElement(target, false, context)
 
     expect(query.startsWith('.')).toBe(false)
     expect(resolveOne(query, document)).toBe(target)
@@ -495,9 +621,9 @@ describe('makeQueryForElement relative context (#26)', () => {
     )
     const context = document.querySelector('div.ctx')!
     const secondLi = document.querySelectorAll('li')[1]
-    const query = makeQueryForElement(secondLi, false, true, false, context)
+    const query = makeQueryForElement(secondLi, true, context)
     expect(query).toBe(
-      "./ul/li[contains(concat(' ', normalize-space(@class), ' '), ' item ')]"
+      ".//li[@class='item']"
     )
   })
 })

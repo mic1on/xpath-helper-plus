@@ -4,9 +4,7 @@ import { useXPathWorkbench } from '@/composables/useXPathWorkbench'
 
 const enabledState = {
   enabled: true,
-  xpathShort: false,
   xpathBatch: false,
-  xpathContainsId: false,
 }
 
 const mocks = vi.hoisted(() => ({

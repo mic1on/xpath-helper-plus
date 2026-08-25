@@ -25,13 +25,11 @@ export interface FocusResultMessage {
 
 export interface ContentScriptState {
   enabled: boolean
-  xpathShort: boolean
   xpathBatch: boolean
-  xpathContainsId: boolean
 }
 
 export interface ToggleMessage {
-  cmd: 'short' | 'batch' | 'containsId'
+  cmd: 'batch'
   value: boolean
 }
 

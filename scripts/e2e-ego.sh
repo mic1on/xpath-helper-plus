@@ -111,7 +111,7 @@ try {
         const callback = args.find(value => typeof value === 'function')
         sent.push({ tabId, message, frameId: options?.frameId ?? null })
         if (!callback) return
-        if (message.cmd === 'getState') callback({ enabled: true, xpathShort: false, xpathBatch: false, xpathContainsId: false })
+        if (message.cmd === 'getState') callback({ enabled: true, xpathBatch: false })
         else if (message.cmd === 'xpath') callback([
           '<button id="save">Save</button>\\n<button>Cancel</button>',
           2,
@@ -165,7 +165,7 @@ try {
     checked: document.querySelector('.xh-toggle:first-of-type input')?.checked,
     last: globalThis.__xhpSent.at(-1),
   }))()`)
-  if (!afterToggle.checked || afterToggle.last.message.cmd !== 'short' || afterToggle.last.message.value !== true) throw new Error(`Mode routing failed: ${JSON.stringify(afterToggle)}`)
+  if (!afterToggle.checked || afterToggle.last.message.cmd !== 'batch' || afterToggle.last.message.value !== true) throw new Error(`Mode routing failed: ${JSON.stringify(afterToggle)}`)
 
   await click('css:.xh-action--ghost')
   const historyOpen = await js(`(() => ({
@@ -174,7 +174,7 @@ try {
   }))()`)
   if (!historyOpen.visible || historyOpen.items !== 1) throw new Error(`History workflow failed: ${JSON.stringify(historyOpen)}`)
 
-  await click('css:.xh-language__option:first-child')
+  await click('css:.xh-header-tools .xh-icon-btn:first-child')
   const localeState = await js(`(() => ({ lang: document.documentElement.lang }))()`)
   if (localeState.lang !== 'zh-CN') throw new Error(`Locale workflow failed: ${JSON.stringify(localeState)}`)
 

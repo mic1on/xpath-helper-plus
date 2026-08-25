@@ -10,9 +10,7 @@ interface HistoryItem {
 
 defineProps<{
   modelValue: string
-  xpathShort: boolean
   xpathBatch: boolean
-  xpathContainsId: boolean
   isSupported: boolean
   queryHistory: HistoryItem[]
   contextActive: boolean
@@ -23,9 +21,7 @@ const { locale, t } = useI18n()
 
 const emit = defineEmits([
   'update:modelValue',
-  'update:xpathShort',
   'update:xpathBatch',
-  'update:xpathContainsId',
   'copy',
   'toCss',
   'select-history',
@@ -51,16 +47,8 @@ const handleKeyDown = (event: KeyboardEvent) => {
   }
 }
 
-const handleShortChange = (event: Event) => {
-  emit('update:xpathShort', (event.target as HTMLInputElement).checked)
-}
-
 const handleBatchChange = (event: Event) => {
   emit('update:xpathBatch', (event.target as HTMLInputElement).checked)
-}
-
-const handleContainsIdChange = (event: Event) => {
-  emit('update:xpathContainsId', (event.target as HTMLInputElement).checked)
 }
 
 const selectHistoryItem = (query: string) => {
@@ -117,32 +105,16 @@ const formatTime = (timestamp: number) => {
         <label class="xh-toggle">
           <input
             type="checkbox"
-            :checked="xpathShort"
-            @change="handleShortChange"
-          />
-          <span class="xh-toggle__track" aria-hidden="true"></span>
-          <span>{{ t('shortXPath') }}</span>
-        </label>
-        <label class="xh-toggle xh-toggle--sub" :class="{ 'xh-toggle--disabled': !xpathShort }">
-          <input
-            type="checkbox"
-            :checked="xpathContainsId"
-            :disabled="!xpathShort"
-            @change="handleContainsIdChange"
-          />
-          <span class="xh-toggle__track" aria-hidden="true"></span>
-          <span>{{ t('containsId') }}</span>
-        </label>
-        <label class="xh-toggle">
-          <input
-            type="checkbox"
             :checked="xpathBatch"
             @change="handleBatchChange"
           />
           <span class="xh-toggle__track" aria-hidden="true"></span>
           <span>{{ t('listMode') }}</span>
         </label>
+        <!-- Temporarily hidden: relative-XPath context feature (issue #26).
+             Remove v-if="false" to restore. -->
         <button
+          v-if="false"
           class="xh-context-btn"
           :class="{ 'xh-context-btn--active': contextActive }"
           type="button"
@@ -163,7 +135,7 @@ const formatTime = (timestamp: number) => {
         >
           {{ t('copyCss') }}
         </button>
-        <div class="xh-history-trigger">
+        <div ref="dropdownRef" class="xh-history-trigger">
           <button
             class="xh-action xh-action--ghost"
             type="button"
@@ -179,7 +151,7 @@ const formatTime = (timestamp: number) => {
             <span class="xh-history-count" v-if="queryHistory.length">{{ queryHistory.length }}</span>
           </button>
           <transition name="xh-history-fade">
-            <div v-show="showHistory" ref="dropdownRef" class="xh-history-dropdown">
+            <div v-show="showHistory" class="xh-history-dropdown">
               <div class="xh-history-dropdown__header">
                 <span>{{ t('queryHistory') }}</span>
                 <button
