@@ -21,9 +21,7 @@ export function useXPathWorkbench() {
   const { isSupported, copy } = useClipboard()
 
   const xpathRule = ref("string('xpath helper plus')")
-  const xpathShort = useLocalStorage<boolean>('xpathShort', false)
   const xpathBatch = useLocalStorage<boolean>('xpathBatch', false)
-  const xpathContainsId = useLocalStorage<boolean>('xpathContainsId', false)
   const xpathResult = ref('')
   const xpathResultCount = ref<number | null>(null)
   const xpathResultItems = ref<XPathResultItem[]>([])
@@ -87,9 +85,7 @@ export function useXPathWorkbench() {
 
   const syncModes = (tabId: number): void => {
     const target = { tabId }
-    sendMessageToContentScript(target, { cmd: 'short', value: xpathShort.value })
     sendMessageToContentScript(target, { cmd: 'batch', value: xpathBatch.value })
-    sendMessageToContentScript(target, { cmd: 'containsId', value: xpathContainsId.value })
     sendMessageToContentScript(target, { cmd: 'setEnabled', value: true })
   }
 
@@ -143,19 +139,9 @@ export function useXPathWorkbench() {
 
   watch(xpathRule, executeQuery)
 
-  const handleShort = (value: boolean): void => {
-    xpathShort.value = value
-    sendMessageToContentScript(getTarget(), { cmd: 'short', value })
-  }
-
   const handleBatch = (value: boolean): void => {
     xpathBatch.value = value
     sendMessageToContentScript(getTarget(), { cmd: 'batch', value })
-  }
-
-  const handleContainsId = (value: boolean): void => {
-    xpathContainsId.value = value
-    sendMessageToContentScript(getTarget(), { cmd: 'containsId', value })
   }
 
   const handleFocusResult = (index: number): void => {
@@ -263,9 +249,7 @@ export function useXPathWorkbench() {
 
   return {
     xpathRule,
-    xpathShort,
     xpathBatch,
-    xpathContainsId,
     xpathResult,
     xpathResultCount,
     xpathResultItems,
@@ -277,9 +261,7 @@ export function useXPathWorkbench() {
     connectionStatus,
     isPageConnected,
     isSupported,
-    handleShort,
     handleBatch,
-    handleContainsId,
     handleFocusResult,
     handleSetContext,
     handleClearContext,

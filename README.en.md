@@ -10,17 +10,18 @@ English | [简体中文](./README.md)
 
 - **Native Side Panel workspace**: Keep the editor and results visible beside the page without injecting application UI into the document.
 - **Element picker**: Hold `Shift` and hover over any page element to generate its XPath.
-- **Shortest unique XPath**: Walks up the DOM until it finds a concise locator that uniquely identifies the target.
+- **Automatic shortest unique XPath**: Always generates the shortest usable XPath that uniquely identifies the target, automatically using IDs, stable attributes, and classes as anchors.
 - **Robust class matching**: Emits token-based class predicates and ignores volatile state classes such as `active`, `hover`, and `is-open`.
 - **Correct position indexes**: Counts siblings over the predicate-selected set used by the generated XPath.
 - **Live query editor**: Edit XPath expressions and immediately inspect matching nodes and values.
-- **Short, contains-ID, and list modes**: Control uniqueness shortening, partial ID matching, and batch locators.
+- **List mode**: Optionally generates a locator for a matching element set, useful for batch extraction.
 - **Attribute and text extraction**: Append `text()`, common attributes, or attributes discovered on matched elements.
 - **Relative XPath context**: Pin a hovered container and generate expressions relative to it.
 - **Query history**: Reuse, pin, or clear recent explicitly-run XPath expressions.
 - **Iframe support**: Pick and evaluate elements inside same-origin and cross-origin frames. Evaluation is routed back to the tab and frame that produced the query.
 - **XPath and CSS copy actions**: Copy the current XPath or convert it to a CSS selector.
-- **English and Chinese UI**: Defaults to the Chrome UI language and provides a persistent `中 / EN` switch.
+- **English and Chinese UI**: Defaults to the Chrome UI language, with a persistent language icon in the top-right corner.
+- **Light and dark themes**: A theme icon in the top-right corner toggles between dark and light modes, and remembers your choice.
 - **Keyboard shortcut**: Press `Alt+Shift+X` to open the Side Panel. Customize it at `chrome://extensions/shortcuts`.
 
 ---
@@ -30,9 +31,9 @@ English | [简体中文](./README.md)
 1. Open a regular web page, then click the extension toolbar icon or press `Alt+Shift+X` to open the Side Panel.
 2. Type an XPath in the editor to evaluate it against the active page.
 3. To pick an element, hold `Shift` and hover over the target. The generated XPath appears in the Side Panel.
-4. Enable **Short XPath**, **Contains ID**, or **List mode** as needed.
+4. The shortest XPath is generated automatically; enable **List mode** only when you need to match a group of similar elements.
 5. Use **Copy** for XPath or **Copy CSS** for the converted CSS selector.
-6. Use the `中 / EN` control to change the interface language.
+6. Use the top-right icons to switch the interface language or toggle the light/dark theme.
 
 Chrome internal pages, the Chrome Web Store, and other restricted URLs do not allow content-script inspection. The panel displays an unavailable state on those pages.
 

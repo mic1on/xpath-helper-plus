@@ -70,16 +70,93 @@ const getIdContainsCandidates = (id: string) => {
         .sort((a, b) => a.length - b.length);
 };
 
-const makeIdComponent = (tagName: string, id: string, useContainsId: boolean) => {
-    if (!useContainsId) {
-        return tagName + '[@id=' + escapeXPathString(id) + ']';
+// Stable, semantic attributes preferred for locating an element when it has no
+// usable id. These are the attributes crawler/automation authors rely on
+// because frameworks keep them stable across renders, unlike hashed class
+// names or positional indices. Ordered by preference: test hooks first, then
+// form identity, then accessibility semantics.
+const STABLE_ATTRIBUTES = [
+    'data-testid',
+    'data-test',
+    'data-qa',
+    'data-cy',
+    'name',
+    'aria-label',
+    'role',
+];
+
+// Build a `tag[@attr='value']` component from the first stable attribute that
+// is present, non-empty, and uniquely identifies the element document-wide.
+// Returns null when no stable attribute qualifies, so the caller can fall back
+// to class/positional logic. Stable-attribute anchoring only collapses the
+// path when it yields a globally unique locator, matching the shortest-unique
+// goal.
+const makeStableAttrComponent = (
+    nodeTest: string,
+    el: Element,
+): string | null => {
+    for (const attr of STABLE_ATTRIBUTES) {
+        const value = el.getAttribute(attr);
+        if (value === null || value.trim() === '') continue;
+        const component = nodeTest + '[@' + attr + '=' + escapeXPathString(value) + ']';
+        if (countXPathMatches('//' + component) === 1) {
+            return component;
+        }
+    }
+    return null;
+};
+
+// Frameworks often append a hash or generated number to an otherwise semantic
+// id. Keep ordinary semantic ids exact, because reducing `btn-reg-copy-all` to
+// `contains(@id, 'copy')` throws away useful identity and becomes fragile when
+// another copy control is added later.
+const isDynamicIdToken = (token: string): boolean => {
+    return /^[a-f\d]{8,}$/i.test(token)
+        || /^(?=.*[a-z])(?=.*\d)[a-z\d]{5,}$/i.test(token)
+        || /^\d{6,}$/.test(token);
+};
+
+const getDynamicIdCandidates = (id: string): string[] => {
+    const tokens = id
+        .split(/[\s_\-:.]+/)
+        .map(token => token.trim())
+        .filter(Boolean);
+    const candidates: string[] = [];
+    let stableRun: string[] = [];
+
+    const flush = () => {
+        if (stableRun.length > 0) {
+            candidates.push(stableRun.join('-'));
+            stableRun = [];
+        }
+    };
+
+    for (const token of tokens) {
+        if (isDynamicIdToken(token)) flush();
+        else stableRun.push(token);
+    }
+    flush();
+
+    return Array.from(new Set(candidates))
+        // Prefer a semantic phrase such as `btn-reg-copy-all` or
+        // `form-registration` over a generic one-word fragment such as `copy`.
+        .sort((left, right) => right.length - left.length);
+};
+
+// Emit an id component. Ordinary ids stay exact and readable. For ids that
+// contain an obvious generated fragment, use the longest unique stable phrase
+// around that fragment so the locator remains useful after regeneration.
+const makeIdComponent = (tagName: string, id: string) => {
+    const exact = tagName + '[@id=' + escapeXPathString(id) + ']';
+    if (!id.split(/[\s_\-:.]+/).some(isDynamicIdToken)) {
+        return exact;
     }
 
-    const uniqueContains = getIdContainsCandidates(id)
+    const uniqueContains = getDynamicIdCandidates(id)
         .map(candidate => tagName + '[contains(@id,' + escapeXPathString(candidate) + ')]')
         .find(component => countXPathMatches('//' + component) === 1);
 
-    return uniqueContains ?? tagName + '[@id=' + escapeXPathString(id) + ']';
+    return uniqueContains ?? exact;
 };
 
 // Volatile / stateful class tokens that frameworks add and remove at runtime
@@ -119,26 +196,29 @@ const isVolatileClass = (token: string) => {
 };
 
 const makeClassComponent = (nodeTest: string, className: string) => {
-    // Build a robust, order- and whitespace-independent class predicate: one
-    // whitespace-normalized contains() per class token, combined with `and`.
-    // This tolerates framework class reordering and dynamically added/removed
-    // classes, unlike the fragile full-string [@class='...'] match (#12).
     const tokens = className.split(/\s+/).filter(token => token.length > 0);
     if (tokens.length === 0) {
         // className was only whitespace: fall back to tag-only component.
         return nodeTest;
     }
-    // Prefer structural (non-volatile) tokens so that toggling a runtime state
-    // class (active/hover/open/...) does not break the locator (#12, scenario
-    // 2). Only when every token looks volatile do we keep them all, since a
-    // predicate is still better than a bare tag for narrowing.
+    // Prefer structural (non-volatile) tokens so that runtime state classes do
+    // not make the locator brittle. When several structural tokens remain,
+    // choose the shortest one: a short XPath should use the smallest sufficient
+    // class signal rather than concatenate every class into a long predicate.
     const structural = tokens.filter(token => !isVolatileClass(token));
-    const chosen = structural.length > 0 ? structural : tokens;
-    const predicate = chosen
-        .map(token => "contains(concat(' ', normalize-space(@class), ' '), "
-            + escapeXPathString(' ' + token + ' ') + ')')
-        .join(' and ');
-    return nodeTest + '[' + predicate + ']';
+    const candidates = structural.length > 0 ? structural : tokens;
+    const token = candidates
+        .slice()
+        .sort((left, right) => left.length - right.length)[0];
+
+    // A lone class can use an exact match. For multiple classes, the shortest
+    // useful selector is the substring form. This intentionally favors compact
+    // locators such as `td[contains(@class, 'reg-checkin')]`; positional XPath
+    // predicates still disambiguate a single node when necessary.
+    if (tokens.length === 1) {
+        return nodeTest + '[@class=' + escapeXPathString(token) + ']';
+    }
+    return nodeTest + '[contains(@class,' + escapeXPathString(token) + ')]';
 };
 
 // Whether an element satisfies the full component predicate, evaluated by the
@@ -161,6 +241,24 @@ const matchesComponent = (el: Element, component: string) => {
     }
 };
 
+// Whether EVERY same-tag sibling of `el` also satisfies the component
+// predicate. This distinguishes a homogeneous list (all `li.item` in a `ul`,
+// or one copy button per row) from heterogeneous same-tag siblings inside one
+// parent (a `td.reg-balance` column sitting next to other non-balance `td`s,
+// or two `td.reg-balance` columns among eleven cells). List mode drops the
+// positional index only when every same-tag sibling matches; otherwise it keeps
+// the index so the locator isolates the hovered field instead of also matching
+// the neighbouring column.
+const allSameTagSiblingsMatch = (el: Element, component: string): boolean => {
+    const parent = el.parentNode;
+    if (!(parent instanceof Element)) return true;
+    for (let sib = parent.firstElementChild; sib; sib = sib.nextElementSibling) {
+        if (sib.tagName !== el.tagName) continue;
+        if (!matchesComponent(sib, component)) return false;
+    }
+    return true;
+};
+
 const getNodeTest = (el: Element): string => {
     const tagName = el.localName.toLowerCase();
     return el.namespaceURI === 'http://www.w3.org/2000/svg'
@@ -170,15 +268,20 @@ const getNodeTest = (el: Element): string => {
 
 const makeQueryForElement = (
     el: Element | null,
-    toShort: boolean = false,
+    // Batch / list mode: when true, positional `[index]` predicates are omitted
+    // so the expression matches an entire set of sibling rows rather than a
+    // single element. This is the only user-facing generation option; every
+    // other strategy (shortest-unique anchoring, id-contains fallback, stable
+    // attributes, single-class simplification) is always applied because the
+    // whole point of the tool is to produce the shortest reliable XPath.
     batch: boolean = false,
-    containsId: boolean = false,
     // A pinned context element (issue #26). When provided and the walk reaches
     // it, generation stops and the path is emitted RELATIVE to the context: it
-    // starts with `.` (e.g. `./div[2]/span[1]`) or, in short mode, `.//...`
-    // when a component is unique within the context (e.g. `.//span[...]`). This
-    // is what crawler loops want: an expression evaluated against each context
-    // node rather than from the document root.
+    // starts with `.` (e.g. `./div[2]/span[1]`) or a `.//...` collapse when a
+    // component is unique within the context (e.g. `.//span[...]`). In list
+    // mode, the shortest matching component is returned relative to context.
+    // This is what crawler loops want: an expression evaluated against each
+    // context node rather than from the document root.
     contextEl: Element | null = null
 ) => {
     if (contextEl && el && el !== contextEl && !contextEl.contains(el)) {
@@ -196,11 +299,18 @@ const makeQueryForElement = (
         const nodeTest = getNodeTest(el);
         let component = nodeTest;
         if (el.id) {
-            component = makeIdComponent(nodeTest, el.id, toShort && containsId);
+            component = makeIdComponent(nodeTest, el.id);
         } else {
-            const className = el.getAttribute('class') ?? '';
-            if (className) {
-                component = makeClassComponent(nodeTest, className);
+            // Stable attributes take precedence over class since a semantic
+            // attribute is a stronger, shorter anchor than a class token set.
+            const stableComponent = makeStableAttrComponent(nodeTest, el);
+            if (stableComponent) {
+                component = stableComponent;
+            } else {
+                const className = el.getAttribute('class') ?? '';
+                if (className) {
+                    component = makeClassComponent(nodeTest, className);
+                }
             }
         }
         // Count the position index over EXACTLY the set the emitted predicate
@@ -213,30 +323,50 @@ const makeQueryForElement = (
             el,
             predicated ? (sib: Element) => matchesComponent(sib, component) : undefined
         );
-        if (!batch && index >= 1) {
+        // Decide whether to keep the positional index. Single mode always keeps
+        // it. List mode drops it only when every same-tag sibling matches the
+        // predicate (a homogeneous list such as one copy button per row, or all
+        // `li.item` in a `ul`). When only some same-tag siblings match, those
+        // matches are distinct fields (e.g. two `td.reg-balance` columns among
+        // eleven cells), so the index is kept to isolate the hovered field
+        // rather than highlighting both columns.
+        const dropIndexForBatch = batch && allSameTagSiblingsMatch(el, component);
+        if (index >= 1 && !dropIndexForBatch) {
             component += '[' + index + ']';
         }
+        // List mode returns the shortest locator for the whole matching set
+        // rather than forcing uniqueness for one hovered node. When the leaf
+        // predicate homogeneously matches all siblings it stays index-free
+        // (`//button[@class='xllm-result-copy']`); when it isolates one field
+        // among heterogeneous siblings it keeps the field index
+        // (`//td[contains(@class,'reg-balance')][2]`).
+        if (batch && component !== nodeTest) {
+            if (contextEl) {
+                return './/' + component + query;
+            }
+            return '//' + component + query;
+        }
+        // If the target element itself is an img, the user most likely wants
+        // its src, so append /@src before attempting the shortest-unique
+        // collapse (this keeps `//img/@src` rather than a bare `//img`).
+        if (query === '' && el.tagName.toLowerCase() === 'img') {
+            component += '/@src';
+        }
         try {
-            if (toShort) {
-                // In relative mode a component is "short-able" when it is unique
-                // among the context's descendants, so we can collapse the path
-                // to `.//component`. Otherwise fall back to global uniqueness.
-                if (contextEl) {
-                    if (countXPathMatches('.//' + component, contextEl) === 1) {
-                        return './/' + component + query;
-                    }
-                } else if (countXPathMatches('//' + component) === 1) {
-                    query = '//' + component + query;
-                    break
+            // Always attempt the shortest-unique collapse: if a single component
+            // uniquely identifies the element (within the pinned context, or
+            // globally), stop climbing and emit the compact `//`/`.//` form.
+            if (contextEl) {
+                if (countXPathMatches('.//' + component, contextEl) === 1) {
+                    return './/' + component + query;
                 }
+            } else if (countXPathMatches('//' + component) === 1) {
+                query = '//' + component + query;
+                break
             }
         } catch (e) {
             // If the query is invalid, just return the component.
             console.log(e)
-        }
-        // If the last tag is an img, the user probably wants img/@src.
-        if (query === '' && el.tagName.toLowerCase() === 'img') {
-            component += '/@src';
         }
         query = '/' + component + query;
     }
@@ -403,6 +533,7 @@ export {
     // change to the extension, which imports only the functions above).
     escapeXPathString,
     getIdContainsCandidates,
+    STABLE_ATTRIBUTES,
     getElementIndex,
     collectAttributeNames,
     getNodePreview,

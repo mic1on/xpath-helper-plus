@@ -30,9 +30,7 @@ function handleMouseMove(event: MouseEvent): void {
   const query = currentEl instanceof Element
     ? makeQueryForElement(
         currentEl,
-        state.xpathShort,
         state.xpathBatch,
-        state.xpathContainsId,
         contextEl,
       )
     : ''
@@ -71,9 +69,7 @@ chrome.runtime.onMessage.addListener((request: SidePanelMessage, _sender, sendRe
       sendResponse(focusQueryResult(request.value, request.index, contextEl ?? document))
       break
     case 'setEnabled':
-    case 'short':
     case 'batch':
-    case 'containsId':
       applyStateMessage(request)
       break
     case 'getState':

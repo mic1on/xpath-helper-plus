@@ -7,9 +7,7 @@ import {
 
 const enabledState = {
   enabled: true,
-  xpathShort: true,
   xpathBatch: true,
-  xpathContainsId: true,
 }
 
 describe('content-script frame state (#47)', () => {
@@ -27,17 +25,15 @@ describe('content-script frame state (#47)', () => {
     expect(second.enabled).toBe(true)
   })
 
-  it('hydrates all hover and XPath modes for a dynamically inserted frame', () => {
+  it('hydrates the enabled and batch modes for a dynamically inserted frame', () => {
     expect(isContentScriptState(enabledState)).toBe(true)
     expect(enabledState).toEqual({
       enabled: true,
-      xpathShort: true,
       xpathBatch: true,
-      xpathContainsId: true,
     })
   })
 
-  it('updates one mode without resetting the rest of the frame state', () => {
+  it('updates the batch mode without resetting the rest of the frame state', () => {
     expect(reduceContentScriptState(enabledState, {
       cmd: 'batch',
       value: false,
