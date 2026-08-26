@@ -76,6 +76,22 @@ assert.ok(manifest.permissions.includes('sidePanel'))
 assert.ok(!manifest.permissions.includes('scripting'))
 assert.equal(manifest.web_accessible_resources, undefined)
 
+// Source-level isolation (AGENTS.md contract): the classic MV3 content script
+// must not import the Side-Panel-only src/utils.ts, or the built IIFE would
+// pull in Side Panel runtime code. Assert the source import graph directly so a
+// regression is caught before it ever reaches the built-bundle check below.
+const contentSource = readFileSync('src/contentScripts/index.ts', 'utf8')
+assert.doesNotMatch(
+  contentSource,
+  /from\s+['"]@\/utils['"]/,
+  'src/contentScripts/index.ts must not import @/utils (Side-Panel-only module)',
+)
+assert.doesNotMatch(
+  contentSource,
+  /from\s+['"](?:\.\.\/)+utils['"]/,
+  'src/contentScripts/index.ts must not import ../utils (Side-Panel-only module)',
+)
+
 for (const path of [
   'extension/dist/background/index.js',
   'extension/dist/contentScripts/index.global.js',
@@ -178,6 +194,17 @@ try {
   const localeState = await js(`(() => ({ lang: document.documentElement.lang }))()`)
   if (localeState.lang !== 'zh-CN') throw new Error(`Locale workflow failed: ${JSON.stringify(localeState)}`)
 
+  // Scenario: locale toggle round-trip (guards #23/#46). Toggling the language
+  // control a second time MUST return to English and re-render visible text, so
+  // a one-way switch (or a toggle that only re-labels without re-rendering) is
+  // caught. Assert both the document lang and a real translated label revert.
+  await click('css:.xh-header-tools .xh-icon-btn:first-child')
+  const localeRoundTrip = await js(`(() => ({
+    lang: document.documentElement.lang,
+    listModeLabel: document.querySelector('.xh-toggle span:last-child')?.textContent?.trim(),
+  }))()`)
+  if (localeRoundTrip.lang !== 'en' || localeRoundTrip.listModeLabel !== 'List mode') throw new Error(`Locale round-trip failed: toggling back must restore English text, got ${JSON.stringify(localeRoundTrip)}`)
+
   await js(`globalThis.__xhpEmit({ cmd: 'queryGenerated', query: '//iframe/button', frameUrl: 'https://frame.example/form' }, { tab: { id: 41 }, frameId: 9 })`)
   await wait(0.25)
   const iframeState = await js(`(() => ({
@@ -218,7 +245,37 @@ try {
   }))()`)
   if (contentState.notification?.cmd !== 'queryGenerated' || !contentState.notification.query || contentState.evaluation?.[1] !== 1 || !contentState.highlighted) throw new Error(`Content script picker failed: ${JSON.stringify(contentState)}`)
 
-  cliLog(JSON.stringify({ initial, afterRun, afterToggle, historyOpen, iframeState, narrowState, contentState }, null, 2))
+  // Scenario: short-xpath simplify end-to-end (guards #51/#52). The picked
+  // target carries id="target", so the generated locator MUST collapse to the
+  // shortest unique id form; a regression that stops producing the shortest
+  // path (e.g. a long positional chain) is caught here even though the older
+  // picker assertion above only checked count===1.
+  const simplifyState = await js(`(() => ({
+    generated: globalThis.__xhpRuntimeSent.at(-1)?.query,
+  }))()`)
+  if (simplifyState.generated !== `//button[@id='target']`) throw new Error(`Short-xpath simplify failed: expected //button[@id='target'] for an id-bearing target, got ${JSON.stringify(simplifyState)}`)
+
+  // Scenario: list-mode class predicate must not over-match a substring sibling
+  // (guards #51/#52). A bare contains(@class,'col') also matches
+  // class="column-x"; the word-boundary predicate must select the intended
+  // node only. Runs the production content bundle so the real generator +
+  // real Chromium XPath engine agree on the match set.
+  await js(`document.body.innerHTML = '<ul><li class="col data">A</li><li class="column-x data">B</li></ul>'`)
+  await js(`globalThis.__xhpEmit({ cmd: 'batch', value: true }, {}, () => {})`)
+  await js(`document.querySelector('.col').dispatchEvent(new MouseEvent('mousemove', { bubbles: true, shiftKey: true }))`)
+  await wait(0.1)
+  await js(`(() => {
+    const notification = globalThis.__xhpRuntimeSent.at(-1)
+    globalThis.__xhpListEval = null
+    globalThis.__xhpEmit({ cmd: 'xpath', value: notification.query }, {}, response => { globalThis.__xhpListEval = response })
+  })()`)
+  const listState = await js(`(() => ({
+    generated: globalThis.__xhpRuntimeSent.at(-1)?.query,
+    matchCount: globalThis.__xhpListEval?.[1],
+  }))()`)
+  if (listState.matchCount !== 1 || /contains\(@class,/.test(listState.generated ?? '')) throw new Error(`List-mode substring over-match: a list locator over col/column-x siblings must match exactly 1 node with a word-boundary predicate, got ${JSON.stringify(listState)}`)
+
+  cliLog(JSON.stringify({ initial, afterRun, afterToggle, historyOpen, iframeState, narrowState, contentState, simplifyState, listState, localeRoundTrip }, null, 2))
   await captureScreenshot()
 }
 finally {
