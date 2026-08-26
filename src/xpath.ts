@@ -211,14 +211,22 @@ const makeClassComponent = (nodeTest: string, className: string) => {
         .slice()
         .sort((left, right) => left.length - right.length)[0];
 
-    // A lone class can use an exact match. For multiple classes, the shortest
-    // useful selector is the substring form. This intentionally favors compact
-    // locators such as `td[contains(@class, 'reg-checkin')]`; positional XPath
-    // predicates still disambiguate a single node when necessary.
+    // A lone class can use an exact match. For multiple classes, use a
+    // whitespace-normalized word-boundary contains() rather than a bare
+    // substring contains(): a bare `contains(@class,'col')` also matches
+    // `class="column-x"`, which silently over-matches sibling elements. In
+    // single mode the shortest-unique collapse and positional index usually
+    // hide this, but list mode returns the leaf locator directly (see
+    // makeQueryForElement's batch early-return), so an over-matching predicate
+    // would expand the matched set beyond the intended nodes (#51/#52). The
+    // word-boundary form keeps the locator compact while matching the token as
+    // a whole class name only.
     if (tokens.length === 1) {
         return nodeTest + '[@class=' + escapeXPathString(token) + ']';
     }
-    return nodeTest + '[contains(@class,' + escapeXPathString(token) + ')]';
+    return nodeTest
+        + '[contains(concat(\' \', normalize-space(@class), \' \'), '
+        + escapeXPathString(' ' + token + ' ') + ')]';
 };
 
 // Whether an element satisfies the full component predicate, evaluated by the
