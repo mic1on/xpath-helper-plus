@@ -8,18 +8,7 @@ const isTopFrame = window === window.top
 
 let currentEl: EventTarget | null = null
 let state: ContentScriptState = { ...DEFAULT_CONTENT_SCRIPT_STATE }
-let contextEl: Element | null = null
 let hydrationUpdates: StateUpdateMessage[] | null = isTopFrame ? null : []
-
-const CONTEXT_CLASS = 'xh-context'
-
-function markContext(el: Element | null): void {
-  if (contextEl && contextEl !== el) {
-    contextEl.classList.remove(CONTEXT_CLASS)
-  }
-  contextEl = el
-  contextEl?.classList.add(CONTEXT_CLASS)
-}
 
 function handleMouseMove(event: MouseEvent): void {
   if (currentEl === event.target) return
@@ -31,7 +20,6 @@ function handleMouseMove(event: MouseEvent): void {
     ? makeQueryForElement(
         currentEl,
         state.xpathBatch,
-        contextEl,
       )
     : ''
   notifyExtension({ cmd: 'queryGenerated', query, frameUrl: window.location.href })
@@ -45,7 +33,6 @@ function setPickerEnabled(enabled: boolean): void {
   } else {
     document.removeEventListener('mousemove', handleMouseMove)
     clearHighlights()
-    markContext(null)
   }
 }
 
@@ -63,10 +50,10 @@ chrome.runtime.onMessage.addListener((request: SidePanelMessage, _sender, sendRe
   switch (request.cmd) {
     case 'xpath':
       clearHighlights()
-      sendResponse(evaluateQuery(request.value, contextEl ?? document))
+      sendResponse(evaluateQuery(request.value))
       break
     case 'focusResult':
-      sendResponse(focusQueryResult(request.value, request.index, contextEl ?? document))
+      sendResponse(focusQueryResult(request.value, request.index))
       break
     case 'setEnabled':
     case 'batch':
@@ -74,14 +61,6 @@ chrome.runtime.onMessage.addListener((request: SidePanelMessage, _sender, sendRe
       break
     case 'getState':
       sendResponse(state)
-      break
-    case 'setContext':
-      markContext(currentEl instanceof Element ? currentEl : null)
-      notifyExtension({ cmd: 'contextState', active: contextEl !== null })
-      break
-    case 'clearContext':
-      markContext(null)
-      notifyExtension({ cmd: 'contextState', active: false })
       break
   }
 })

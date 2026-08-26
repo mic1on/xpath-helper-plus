@@ -7,8 +7,3 @@ img.xh-highlight {
   opacity: 0.58 !important;
 }
 
-.xh-context {
-  outline: 2px dashed #d97706 !important;
-  outline-offset: -1px !important;
-  background-color: rgba(245, 158, 11, 0.14) !important;
-}

@@ -10,7 +10,7 @@ Chrome loads the `extension/` directory. `src/manifest.ts` generates `extension/
 
 ## Content-script bundle isolation
 
-`src/contentScripts/index.ts` is registered as a classic MV3 content script, so `extension/dist/contentScripts/index.global.js` MUST be a self-contained IIFE with no ESM imports. Shared runtime code used by the Side Panel and content script belongs in dependency-light modules such as `src/lib/messaging.ts`; the content script must not import `src/utils.ts`. `scripts/e2e-ego.sh` asserts source and built-bundle isolation.
+`src/contentScripts/index.ts` is registered as a classic MV3 content script, so `extension/dist/contentScripts/index.global.js` MUST be a self-contained IIFE with no ESM imports. Shared runtime code used by the Side Panel and content script belongs in dependency-light modules such as `src/lib/messaging.ts`; the content script must not import `src/utils.ts`. `scripts/e2e-ego.sh` asserts both the source-level rule (the content-script source must not import `@/utils`) and built-bundle isolation (no surviving `import`/`from` in the emitted background and content bundles).
 
 ## Side Panel and iframe routing (issue #25)
 

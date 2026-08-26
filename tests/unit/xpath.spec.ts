@@ -180,24 +180,24 @@ describe('makeQueryForElement', () => {
 
   it('uses the shortest structural class token for multiple classes', () => {
     // Multi-class elements use the shortest stable token and a compact
-    // contains(@class, ...) predicate instead of concatenating every class.
+    // word-boundary contains() predicate instead of concatenating every class.
     setDom('<div><span class="foo bar">t</span></div>')
     expect(makeQueryForElement(document.querySelector('span')!)).toBe(
-      "//span[contains(@class,'foo')]"
+      "//span[contains(concat(' ', normalize-space(@class), ' '), ' foo ')]"
     )
   })
 
   it('chooses the shortest structural class and drops volatile state classes', () => {
     setDom('<div><span class="btn active large">t</span></div>')
     expect(makeQueryForElement(document.querySelector('span')!)).toBe(
-      "//span[contains(@class,'btn')]"
+      "//span[contains(concat(' ', normalize-space(@class), ' '), ' btn ')]"
     )
   })
 
   it('keeps a short stable class from a real multi-class table cell', () => {
     setDom('<table><tbody><tr><td class="reg-checkin reg-checkin-ok">+$12</td></tr></tbody></table>')
     expect(makeQueryForElement(document.querySelector('td')!)).toBe(
-      "//td[contains(@class,'reg-checkin')]"
+      "//td[contains(concat(' ', normalize-space(@class), ' '), ' reg-checkin ')]"
     )
   })
 
@@ -216,7 +216,7 @@ describe('makeQueryForElement', () => {
     const secondRowCells = document.querySelectorAll('tr')[1].querySelectorAll('td')
     // Cell index 2 is the current-balance column (second reg-balance).
     expect(makeQueryForElement(secondRowCells[2], true)).toBe(
-      "//td[contains(@class,'reg-balance')][2]"
+      "//td[contains(concat(' ', normalize-space(@class), ' '), ' reg-balance ')][2]"
     )
   })
 
@@ -245,6 +245,37 @@ describe('makeQueryForElement', () => {
     )
   })
 
+  it('does not over-match a sibling whose class contains the token as a substring in list mode (#51/#52)', () => {
+    // Regression: list mode returns the leaf class locator directly, before the
+    // shortest-unique collapse. A bare contains(@class,'col') also matches
+    // class="column-x", silently expanding the matched set. The word-boundary
+    // predicate must match ONLY the whole class token. Multi-class element so
+    // the contains() branch (not the lone-class exact branch) is exercised.
+    setDom('<ul><li class="col data">A</li><li class="column-x data">B</li></ul>')
+    const target = document.querySelector('.col')!
+    const query = makeQueryForElement(target, true)
+    expect(query).toBe(
+      "//li[contains(concat(' ', normalize-space(@class), ' '), ' col ')]"
+    )
+    const [, count] = evaluateQueryCount(query)
+    expect(count).toBe(1)
+  })
+
+  it('does not over-match a same-tag substring sibling in single mode (#51/#52)', () => {
+    // The same substring hazard in single mode: even though the shortest-unique
+    // check and positional index usually rescue single mode, the emitted
+    // predicate itself must be word-bounded so the locator stays correct if the
+    // sibling set changes at runtime.
+    setDom('<div><span class="col data">A</span><span class="column-x data">B</span></div>')
+    const target = document.querySelector('.col')!
+    const query = makeQueryForElement(target)
+    const result = document.evaluate(
+      query, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null
+    )
+    expect(result.snapshotLength).toBe(1)
+    expect(result.snapshotItem(0)).toBe(target)
+  })
+
   it('drops volatile state class tokens so runtime toggles do not break the locator (#12)', () => {
     // Structural token `card` is kept; `active` (state) is excluded. The
     // generated query must still uniquely resolve the element AFTER the state
@@ -252,7 +283,7 @@ describe('makeQueryForElement', () => {
     setDom('<div><span class="card active">t</span></div>')
     const query = makeQueryForElement(document.querySelector('span')!)
     expect(query).toBe(
-      "//span[contains(@class,'card')]"
+      "//span[contains(concat(' ', normalize-space(@class), ' '), ' card ')]"
     )
     setDom('<div><span class="card">t</span></div>')
     const [, count] = evaluateQueryCount(query)
@@ -263,14 +294,14 @@ describe('makeQueryForElement', () => {
     setDom('<div><span class="nav-item is-open tab-active">t</span></div>')
     // Only the structural `nav-item` token survives.
     expect(makeQueryForElement(document.querySelector('span')!)).toBe(
-      "//span[contains(@class,'nav-item')]"
+      "//span[contains(concat(' ', normalize-space(@class), ' '), ' nav-item ')]"
     )
   })
 
   it('keeps the shortest token when every class looks volatile', () => {
     setDom('<div><span class="active hover">t</span></div>')
     expect(makeQueryForElement(document.querySelector('span')!)).toBe(
-      "//span[contains(@class,'hover')]"
+      "//span[contains(concat(' ', normalize-space(@class), ' '), ' hover ')]"
     )
   })
 
@@ -312,7 +343,7 @@ describe('makeQueryForElement', () => {
     const query = makeQueryForElement(target)
 
     expect(query).toContain("*[local-name()='svg' and namespace-uri()='http://www.w3.org/2000/svg']")
-    expect(query).toContain("contains(@class,'icon')")
+    expect(query).toContain("contains(concat(' ', normalize-space(@class), ' '), ' icon ')")
     expect(query).not.toContain("' active '")
   })
 
@@ -533,101 +564,6 @@ describe('makeQueryForElement #13 behavioral (query resolves to the selected nod
   })
 })
 
-// Relative XPath generation from a pinned context node (issue #26). When a
-// context element is supplied, the walk stops there and emits a `.`-relative
-// expression suitable for crawler loops (evaluate against each context node).
-describe('makeQueryForElement relative context (#26)', () => {
-  beforeEach(() => {
-    document.body.innerHTML = ''
-  })
-
-  function resolveOne(query: string, contextNode: Node): Node | null {
-    const result = document.evaluate(
-      query,
-      contextNode,
-      null,
-      XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-      null
-    )
-    if (result.snapshotLength !== 1) return null
-    return result.snapshotItem(0)
-  }
-
-  it('emits a `.//`-relative path that stops at the context node', () => {
-    setDom(
-      '<ul><li class="row"><span class="price">9.9</span></li></ul>'
-    )
-    const context = document.querySelector('li.row')!
-    const target = document.querySelector('span.price')!
-    const query = makeQueryForElement(target, false, context)
-    // The span is unique within the context subtree, so the shortest-unique
-    // collapse yields a `.//` relative locator.
-    expect(query).toBe(
-      ".//span[@class='price']"
-    )
-    expect(resolveOne(query, context)).toBe(target)
-  })
-
-  it('returns "." when the target IS the context node', () => {
-    setDom('<div id="ctx"><span>x</span></div>')
-    const context = document.getElementById('ctx')!
-    expect(makeQueryForElement(context, false, context)).toBe('.')
-  })
-
-  it('collapses to `.//component` in short mode when unique within the context', () => {
-    setDom(
-      '<li class="row"><div><span class="price">9.9</span></div></li>'
-    )
-    const context = document.querySelector('li.row')!
-    const target = document.querySelector('span.price')!
-    // The price span is unique within the context subtree, so short mode
-    // collapses the intermediate path to `.//`.
-    const query = makeQueryForElement(target, false, context)
-    expect(query).toBe(
-      ".//span[@class='price']"
-    )
-    expect(resolveOne(query, context)).toBe(target)
-  })
-
-  it('relative path resolves correctly against sibling context nodes (crawler loop)', () => {
-    // Two structurally identical list rows. A relative expression generated
-    // from one row must resolve the analogous element inside EACH row.
-    setDom(
-      '<ul>' +
-        '<li class="row"><span class="price">1</span><a class="link">x</a></li>' +
-        '<li class="row"><span class="price">2</span><a class="link">y</a></li>' +
-      '</ul>'
-    )
-    const rows = document.querySelectorAll('li.row')
-    const firstLink = rows[0].querySelector('a.link')!
-    const query = makeQueryForElement(firstLink, false, rows[0] as Element)
-    // Same relative query, evaluated against the SECOND row, resolves its link.
-    expect(resolveOne(query, rows[1])).toBe(rows[1].querySelector('a.link'))
-  })
-
-  it('falls back to an absolute path when the target is outside the pinned context', () => {
-    setDom('<section id="context"><span>inside</span></section><aside><span id="target">outside</span></aside>')
-    const context = document.getElementById('context')!
-    const target = document.getElementById('target')!
-    const query = makeQueryForElement(target, false, context)
-
-    expect(query.startsWith('.')).toBe(false)
-    expect(resolveOne(query, document)).toBe(target)
-  })
-
-  it('omits positional index under batch mode in relative context', () => {
-    setDom(
-      '<div class="ctx"><ul><li class="item">a</li><li class="item">b</li></ul></div>'
-    )
-    const context = document.querySelector('div.ctx')!
-    const secondLi = document.querySelectorAll('li')[1]
-    const query = makeQueryForElement(secondLi, true, context)
-    expect(query).toBe(
-      ".//li[@class='item']"
-    )
-  })
-})
-
 describe('structured XPath results', () => {
   beforeEach(() => setDom(''))
 
@@ -708,6 +644,25 @@ describe('structured XPath results', () => {
     expect(focusQueryResult('//p', 2)).toBe(false)
     expect(document.querySelector('p')?.classList.contains('xh-highlight')).toBe(true)
   })
+
+  it('focuses the Nth node for the Nth result item (list click index contract, #22/#45)', () => {
+    // The result list emits item.index (assigned 0,1,2 by evaluateQuery's
+    // iterator) and the click handler forwards it to focusQueryResult, which
+    // resolves it against an ordered snapshot. This test locks in that the two
+    // enumerations agree in document order, so clicking the Nth listed result
+    // highlights the Nth matching node.
+    setDom('<p>a</p><p>b</p><p>c</p>')
+    const [, , , items] = evaluateQuery('//p')
+    const paragraphs = document.querySelectorAll('p')
+    paragraphs.forEach(p => (p.scrollIntoView = vi.fn()))
+
+    for (const item of items) {
+      expect(focusQueryResult('//p', item.index)).toBe(true)
+      const highlighted = document.querySelectorAll('.xh-highlight')
+      expect(highlighted).toHaveLength(1)
+      expect(highlighted[0]).toBe(paragraphs[item.index])
+    }
+  })
 })
 
 describe('collectAttributeNames', () => {
@@ -736,5 +691,28 @@ describe('collectAttributeNames', () => {
 
   it('returns an empty list for an empty node set', () => {
     expect(collectAttributeNames([])).toEqual([])
+  })
+})
+
+describe('evaluateQuery error and empty states', () => {
+  beforeEach(() => setDom(''))
+
+  it('reports an invalid XPath expression without throwing', () => {
+    // Malformed input must surface a clear sentinel and zero matches rather
+    // than crashing the evaluation path (guards the invalid-input UI state).
+    setDom('<div><span>x</span></div>')
+    const [value, count, attributes, items] = evaluateQuery('//[[[invalid')
+    expect(value).toBe('[INVALID XPATH EXPRESSION]')
+    expect(count).toBe(0)
+    expect(attributes).toEqual([])
+    expect(items).toEqual([])
+  })
+
+  it('reports [NULL] and zero matches for a valid query with no matches', () => {
+    setDom('<div><span>x</span></div>')
+    const [value, count, , items] = evaluateQuery('//table')
+    expect(value).toBe('[NULL]')
+    expect(count).toBe(0)
+    expect(items).toEqual([])
   })
 })
