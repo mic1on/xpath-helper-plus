@@ -133,20 +133,35 @@ describe('useXPathWorkbench side panel routing', () => {
     expect(workbench.activeFrameId.value).toBe(0)
   })
 
-  it('re-evaluates the current XPath when context state changes', async () => {
-    useXPathWorkbench()
+  it('ignores stale contextState notifications and does not mutate frame routing (#26 removal)', async () => {
+    // Regression guard: the relative-context feature was removed, so a legacy
+    // `contextState` notification from an old content script must be a no-op —
+    // it must NOT overwrite activeFrameId or trigger a re-evaluation.
+    const workbench = useXPathWorkbench()
     await nextTick()
+
+    // Establish a known frame via a real queryGenerated message.
+    mocks.runtimeListener?.(
+      { cmd: 'queryGenerated', query: '//button', frameUrl: 'https://frame.example' },
+      { tab: { id: 41 }, frameId: 7 },
+    )
+    await nextTick()
+    expect(workbench.activeFrameId.value).toBe(7)
+
     const evaluationsBefore = mocks.sendMessageToContentScript.mock.calls
       .filter(([, message]) => message.cmd === 'xpath').length
 
+    // A stray contextState message (different frameId) must be ignored entirely.
     mocks.runtimeListener?.(
-      { cmd: 'contextState', active: true },
-      { tab: { id: 41 }, frameId: 0 },
+      { cmd: 'contextState', active: true } as any,
+      { tab: { id: 41 }, frameId: 99 },
     )
+    await nextTick()
 
     const evaluationsAfter = mocks.sendMessageToContentScript.mock.calls
       .filter(([, message]) => message.cmd === 'xpath').length
-    expect(evaluationsAfter).toBe(evaluationsBefore + 1)
+    expect(workbench.activeFrameId.value).toBe(7)
+    expect(evaluationsAfter).toBe(evaluationsBefore)
   })
 
   it('disables the previous picker when the active tab changes', async () => {

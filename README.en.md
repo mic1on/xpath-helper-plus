@@ -16,7 +16,6 @@ English | [简体中文](./README.md)
 - **Live query editor**: Edit XPath expressions and immediately inspect matching nodes and values.
 - **List mode**: Optionally generates a locator for a matching element set, useful for batch extraction.
 - **Attribute and text extraction**: Append `text()`, common attributes, or attributes discovered on matched elements.
-- **Relative XPath context**: Pin a hovered container and generate expressions relative to it.
 - **Query history**: Reuse, pin, or clear recent explicitly-run XPath expressions.
 - **Iframe support**: Pick and evaluate elements inside same-origin and cross-origin frames. Evaluation is routed back to the tab and frame that produced the query.
 - **XPath and CSS copy actions**: Copy the current XPath or convert it to a CSS selector.

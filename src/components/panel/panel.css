@@ -128,7 +128,6 @@
 }
 
 .xh-action,
-.xh-context-btn,
 .xh-extract__chip {
   min-height: 28px;
   border: 1px solid var(--xh-border);
@@ -141,13 +140,11 @@
   transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
-.xh-action,
-.xh-context-btn {
+.xh-action {
   padding: 4px 9px;
 }
 
 .xh-action:hover,
-.xh-context-btn:hover,
 .xh-extract__chip:hover {
   border-color: var(--xh-border-strong);
   color: var(--xh-text);
@@ -155,7 +152,6 @@
 }
 
 .xh-action:disabled,
-.xh-context-btn:disabled,
 .xh-extract__chip:disabled {
   cursor: not-allowed;
   opacity: 0.4;
@@ -175,11 +171,6 @@
   place-items: center;
 }
 
-.xh-context-btn--active {
-  border-color: var(--xh-amber-border);
-  color: var(--xh-amber);
-  background: var(--xh-amber-bg);
-}
 
 .xh-count {
   min-width: 23px;

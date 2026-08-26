@@ -17,7 +17,6 @@ const {
   xpathResultCount,
   xpathResultItems,
   xpathAttributes,
-  xpathContextActive,
   activeFrameId,
   activeFrameUrl,
   connectionStatus,
@@ -25,8 +24,6 @@ const {
   isSupported,
   handleBatch,
   handleFocusResult,
-  handleSetContext,
-  handleClearContext,
   handleCopy,
   handleToCss,
   handleAppendExtraction,
@@ -102,7 +99,6 @@ const statusLabel = computed(() => {
       :xpath-batch="xpathBatch"
       :is-supported="isSupported"
       :query-history="queryHistory"
-      :context-active="xpathContextActive"
       :page-connected="isPageConnected"
       @update:xpath-batch="handleBatch"
       @copy="handleCopy"
@@ -111,8 +107,6 @@ const statusLabel = computed(() => {
       @clear-history="clearQueryHistory"
       @toggle-pin="toggleQueryPin"
       @run-query="runQuery"
-      @set-context="handleSetContext"
-      @clear-context="handleClearContext"
     />
     <ResultPreviewCard
       v-model="xpathResult"

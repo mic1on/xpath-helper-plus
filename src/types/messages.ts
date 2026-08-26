@@ -48,19 +48,10 @@ export interface RequestContentStateMessage {
   cmd: 'requestContentState'
 }
 
-export interface ContextMessage {
-  cmd: 'setContext' | 'clearContext'
-}
-
 export interface QueryResult {
   cmd: 'queryGenerated'
   query: string
   frameUrl?: string
-}
-
-export interface ContextStateResult {
-  cmd: 'contextState'
-  active: boolean
 }
 
 export type SidePanelMessage =
@@ -68,9 +59,8 @@ export type SidePanelMessage =
   | FocusResultMessage
   | StateUpdateMessage
   | GetStateMessage
-  | ContextMessage
 
-export type ContentScriptMessage = QueryResult | ContextStateResult | RequestContentStateMessage
+export type ContentScriptMessage = QueryResult | RequestContentStateMessage
 
 export interface ContentScriptTarget {
   tabId: number

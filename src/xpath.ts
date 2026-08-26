@@ -282,27 +282,10 @@ const makeQueryForElement = (
     // other strategy (shortest-unique anchoring, id-contains fallback, stable
     // attributes, single-class simplification) is always applied because the
     // whole point of the tool is to produce the shortest reliable XPath.
-    batch: boolean = false,
-    // A pinned context element (issue #26). When provided and the walk reaches
-    // it, generation stops and the path is emitted RELATIVE to the context: it
-    // starts with `.` (e.g. `./div[2]/span[1]`) or a `.//...` collapse when a
-    // component is unique within the context (e.g. `.//span[...]`). In list
-    // mode, the shortest matching component is returned relative to context.
-    // This is what crawler loops want: an expression evaluated against each
-    // context node rather than from the document root.
-    contextEl: Element | null = null
+    batch: boolean = false
 ) => {
-    if (contextEl && el && el !== contextEl && !contextEl.contains(el)) {
-        contextEl = null;
-    }
     let query = '';
     for (; el; el = el.parentNode instanceof Element ? el.parentNode : null) {
-        // Reached the pinned context node: everything accumulated so far is the
-        // path relative to it. Prefix `.` so the query starts at the context
-        // (issue #26) and stop climbing toward the document root.
-        if (contextEl && el === contextEl) {
-            return '.' + query;
-        }
         el.classList.remove('xh-highlight')
         const nodeTest = getNodeTest(el);
         let component = nodeTest;
@@ -349,9 +332,6 @@ const makeQueryForElement = (
         // among heterogeneous siblings it keeps the field index
         // (`//td[contains(@class,'reg-balance')][2]`).
         if (batch && component !== nodeTest) {
-            if (contextEl) {
-                return './/' + component + query;
-            }
             return '//' + component + query;
         }
         // If the target element itself is an img, the user most likely wants
@@ -362,13 +342,9 @@ const makeQueryForElement = (
         }
         try {
             // Always attempt the shortest-unique collapse: if a single component
-            // uniquely identifies the element (within the pinned context, or
-            // globally), stop climbing and emit the compact `//`/`.//` form.
-            if (contextEl) {
-                if (countXPathMatches('.//' + component, contextEl) === 1) {
-                    return './/' + component + query;
-                }
-            } else if (countXPathMatches('//' + component) === 1) {
+            // uniquely identifies the element globally, stop climbing and emit
+            // the compact `//` form.
+            if (countXPathMatches('//' + component) === 1) {
                 query = '//' + component + query;
                 break
             }

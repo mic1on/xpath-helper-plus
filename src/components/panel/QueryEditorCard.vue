@@ -13,7 +13,6 @@ defineProps<{
   xpathBatch: boolean
   isSupported: boolean
   queryHistory: HistoryItem[]
-  contextActive: boolean
   pageConnected: boolean
 }>()
 
@@ -28,8 +27,6 @@ const emit = defineEmits([
   'clear-history',
   'toggle-pin',
   'run-query',
-  'set-context',
-  'clear-context',
 ])
 
 const showHistory = ref(false)
@@ -111,19 +108,6 @@ const formatTime = (timestamp: number) => {
           <span class="xh-toggle__track" aria-hidden="true"></span>
           <span>{{ t('listMode') }}</span>
         </label>
-        <!-- Temporarily hidden: relative-XPath context feature (issue #26).
-             Remove v-if="false" to restore. -->
-        <button
-          v-if="false"
-          class="xh-context-btn"
-          :class="{ 'xh-context-btn--active': contextActive }"
-          type="button"
-          :disabled="!pageConnected"
-          :title="contextActive ? t('clearContextTitle') : t('setContextTitle')"
-          @click="contextActive ? emit('clear-context') : emit('set-context')"
-        >
-          {{ contextActive ? t('clearContext') : t('setContext') }}
-        </button>
       </div>
       <div v-if="isSupported" class="xh-panel__actions">
         <button class="xh-action" type="button" @click="emit('copy')">{{ t('copy') }}</button>

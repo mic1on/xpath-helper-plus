@@ -26,7 +26,6 @@ export function useXPathWorkbench() {
   const xpathResultCount = ref<number | null>(null)
   const xpathResultItems = ref<XPathResultItem[]>([])
   const xpathAttributes = ref<string[]>([])
-  const xpathContextActive = ref(false)
 
   const activeTabId = ref<number | null>(null)
   const activeFrameId = ref(0)
@@ -55,7 +54,6 @@ export function useXPathWorkbench() {
   const resetFrameContext = (): void => {
     activeFrameId.value = 0
     activeFrameUrl.value = ''
-    xpathContextActive.value = false
     clearEvaluation()
   }
 
@@ -152,14 +150,6 @@ export function useXPathWorkbench() {
     })
   }
 
-  const handleSetContext = (): void => {
-    sendMessageToContentScript(getTarget(activeFrameId.value), { cmd: 'setContext' })
-  }
-
-  const handleClearContext = (): void => {
-    sendMessageToContentScript(getTarget(activeFrameId.value), { cmd: 'clearContext' })
-  }
-
   const handleCopy = (): void => {
     copy(xpathRule.value)
   }
@@ -189,16 +179,11 @@ export function useXPathWorkbench() {
     if (request.cmd === 'queryGenerated') {
       activeFrameId.value = sender.frameId ?? 0
       activeFrameUrl.value = request.frameUrl ?? ''
-      xpathContextActive.value = false
       if (request.query === xpathRule.value) {
         executeQuery()
       } else {
         xpathRule.value = request.query
       }
-    } else if (request.cmd === 'contextState') {
-      activeFrameId.value = sender.frameId ?? activeFrameId.value
-      xpathContextActive.value = request.active
-      executeQuery()
     }
   }
 
@@ -254,7 +239,6 @@ export function useXPathWorkbench() {
     xpathResultCount,
     xpathResultItems,
     xpathAttributes,
-    xpathContextActive,
     activeTabId,
     activeFrameId,
     activeFrameUrl,
@@ -263,8 +247,6 @@ export function useXPathWorkbench() {
     isSupported,
     handleBatch,
     handleFocusResult,
-    handleSetContext,
-    handleClearContext,
     handleCopy,
     handleToCss,
     handleAppendExtraction,
