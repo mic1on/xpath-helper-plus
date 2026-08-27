@@ -365,13 +365,20 @@ const clearHighlights = () => {
     els.forEach(el => el.classList.remove('xh-highlight'));
 };
 
+// Framework-injected scope markers that carry no scraping value: Vue scoped-CSS
+// tags (`data-v-<hash>`), Angular view-encapsulation markers (`_ngcontent-*`,
+// `_nghost-*`, `ng-*`), and Nuxt/SSR hydration ids (`data-n-head`, `data-hid`).
+// Their values are build-time random hashes that change every release, so
+// surfacing them as one-click "append extraction" chips only adds noise.
+const FRAMEWORK_ATTR_NOISE = /^(?:data-v-[0-9a-f]+|_ngcontent-|_nghost-|ng-|data-n-head$|data-hid$)/;
+
 // Collect the union of attribute names present on the matched element nodes,
 // sorted and de-duplicated. This powers the result area's "append extraction"
-// helper (issue #24): the Side Panel renders one button per real attribute so
+// helper (issue #24): the Side Panel renders one chip per real attribute so
 // crawler developers can append `/@data-id`, `/@class`, etc. in a single click.
 // Only element nodes carry attributes; text/attribute result nodes contribute
-// none, and the extension's own transient highlight class is not filtered here
-// because attributes (not class values) are what we enumerate.
+// none. Framework scope markers (see FRAMEWORK_ATTR_NOISE) are filtered out
+// because they are build-time hashes with no scraping value.
 const collectAttributeNames = (els: Element[]): string[] => {
     const names = new Set<string>();
     for (const el of els) {
@@ -379,7 +386,7 @@ const collectAttributeNames = (els: Element[]): string[] => {
         if (!attrs) continue;
         for (let i = 0; i < attrs.length; i++) {
             const name = attrs[i]?.name;
-            if (name) {
+            if (name && !FRAMEWORK_ATTR_NOISE.test(name)) {
                 names.add(name);
             }
         }
