@@ -38,11 +38,14 @@ const frameBadge = computed(() => {
   }
 })
 
-// Common extraction steps offered first (issue #24). `text()` grabs the node
-// text; the rest are frequently-wanted attributes. Real attributes discovered
-// on the matched elements are appended after these, de-duplicated, so users get
-// one-click access to element-specific attributes like `data-id` or `srcset`.
-const BASE_SUGGESTIONS = ['text()', '@href', '@src', '@value']
+// The append-extraction chips are driven by the *actual* matched elements
+// (issue #24). `text()` is the only fixed suggestion because it applies to any
+// element node regardless of its attributes; every `@attr` chip is derived from
+// attributes that really exist on the current result set (`props.attributes`,
+// already framework-noise-filtered and de-duplicated by `collectAttributeNames`
+// in `src/xpath.ts`). This means `@href`/`@src` only appear when a matched node
+// truly carries them, instead of being shown unconditionally.
+const BASE_SUGGESTIONS = ['text()']
 
 const suggestions = computed(() => {
   const dynamic = props.attributes.map((name) => `@${name}`)

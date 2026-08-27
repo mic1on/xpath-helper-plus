@@ -692,6 +692,18 @@ describe('collectAttributeNames', () => {
   it('returns an empty list for an empty node set', () => {
     expect(collectAttributeNames([])).toEqual([])
   })
+
+  it('filters out framework scope markers with no scraping value', () => {
+    // Vue scoped-CSS, Angular view-encapsulation, and Nuxt/SSR hydration
+    // markers are build-time hashes; they must never appear as extraction
+    // chips. Real attributes on the same element are still collected.
+    setDom(
+      '<a href="/x" data-id="1" data-v-d7444617="" _ngcontent-abc="" ' +
+      'ng-reflect-x="1" data-n-head="ssr" data-hid="42">x</a>'
+    )
+    const els = Array.from(document.querySelectorAll('a'))
+    expect(collectAttributeNames(els)).toEqual(['data-id', 'href'])
+  })
 })
 
 describe('evaluateQuery error and empty states', () => {
