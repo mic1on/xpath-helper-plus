@@ -3,7 +3,7 @@
   "displayName": "XPath Helper Plus",
   "author": "MicLon",
   "private": true,
-  "version": "2.0.1",
+  "version": "2.1.0",
   "packageManager": "pnpm@10.28.1",
   "description": "Generate, evaluate, and inspect XPath expressions directly on any page.",
   "engines": {
